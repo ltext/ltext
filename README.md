@@ -1,0 +1,4 @@
+ltext
+=====
+
+Lambdas for Templates
