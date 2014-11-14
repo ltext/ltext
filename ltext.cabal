@@ -4,18 +4,31 @@ Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
--- Synopsis:               
--- Description:            
+Synopsis:               Lambdas as Templates
+Description:            Use lambdas as templating functions for arbitrary 
+                        plaintexts. Features type inference, extension-
+                        sensitive formatting, incompatability warnings, 
+                        and that's about it!
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
 
+
 Library
+  Default-Language:     Haskell2010
+  HS-Source-Dirs:       src
+  GHC-Options:          -Wall
+  Exposed-Modules:      LText
+  Other-Modules:        LText.Internal
+  Build-Depends:        base >= 4 && < 5
+
+Executable ltext
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
   Exposed-Modules:      Main
   Other-Modules:        Main.Internal
   Build-Depends:        base >= 4 && < 5
+                      , optparse-applicative >= 0.11
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
@@ -29,4 +42,4 @@ Test-Suite spec
 
 Source-Repository head
   Type:                 git
---  Location:             
+  Location:             https://github.com/athanclark/ltext.git
