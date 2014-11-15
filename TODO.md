@@ -10,12 +10,13 @@ This document is for development organizational & record-keeping purposes.
 #### Text Substitution
 
 We need to prepare for __massive__ files, which means 2-phase evaluation:
+
 1. Parse the template body to find the positions where the template variables 
    occour, and record their character placement
 2. When content is applied to the template, jump the cursor position to the 
    variable's
-    i. eliminate the variable text
-    ii. insert the content stream into the variable's position
+    1. eliminate the variable text
+    2. insert the content stream into the variable's position
 
 For the file content streaming, Conduit will be used. For actual content 
 insertion, we may require temporary files.
