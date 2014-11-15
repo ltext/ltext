@@ -3,7 +3,7 @@
 
 Lambdas as Templates
 
-![ltext](nonsense/ltext.png)
+<img src="https://raw.githubusercontent.com/athanclark/ltext/master/nonsense/ltext.png" align="right">
 
 ## Installation
 
