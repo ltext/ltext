@@ -5,6 +5,8 @@
 
 Lambdas as Templates
 
+> __WARNING__ This project is still in it's infancy, so don't expect it to work!
+
 ## Overview
 
 λtext is a text templating engine that uses a variant of the polymorphic lambda 
@@ -48,9 +50,22 @@ There will be three main uses of the `ltext` command - evaluating template
 expressions, querying for the type signature of a template or template 
 expression, and checking the integrity of a template file.
 
+#### Expression Evaluation
+
 When we evaluate a template expression, normally we just feed the result to 
 `stdout` and pipe in our shell to a result file or what have you. But, just in 
 case, there's a flag for specifying an output file.
+
+We will also supply a few utility functions, like `nolines` and `nowords`, which 
+eliminate newline characters and spaces, respectively. Note that these are 
+_forgetful_ transformations, unline `unlines` and `unwords` from Haskell 
+(because there's no list type in λtext). We will also include serializers and 
+escaping (possibly even including the serializers implicitly).
+
+Note that all output from expression evaluations will become UTF-8. Please 
+prepare accordingly.
+
+#### Type Queries
 
 Type queries are just like the `:t` command in GHCi - they infer the type of a 
 template based on it's content. We also allow people to specify the type signature of 
@@ -59,6 +74,8 @@ require a parameter to have a flat `Content` type, for instance. This is useful
 for finalization steps in a compilation process. This also lets us practically 
 see if our expression will work, or what else is needed in our expression to get 
 what we want.
+
+#### Integrity Checks
 
 Template integrity checks are a technical necessity. When we declare parameters 
 in our file, we want these parameters to be easily seen by our parser - that is, 
@@ -124,7 +141,7 @@ that doesn't end in `.js`) and combine them with product. Here is a table of
 accepted syntax:
 
 | Product | Union | Only  | Without |
-|---------|-------|-------|---------|
+|:-------:|:-----:|:-----:|:-------:|
 | `*`     | `+`   | `.foo`| `/.foo` |
 | `&`     | `|`   |       | `-.foo` |
 
