@@ -1,7 +1,7 @@
-<img src="https://raw.githubusercontent.com/athanclark/ltext/master/nonsense/ltext.png" align="right" style="z-index: 1000; position: relative;">
-
 λtext
 =====
+
+![ltext](nonsense/ltext.png)
 
 Lambdas as Templates
 
