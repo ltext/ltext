@@ -3,6 +3,8 @@
 
 Lambdas as Templates
 
+![ltext](nonsense/ltext.png)
+
 ## Installation
 
 ```bash
