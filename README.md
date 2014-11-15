@@ -109,7 +109,7 @@ foo.html.ltext :: (a.html + a.css + a.js) => a -> Content
 bar.js.ltext :: Content
 baz.md.ltext :: Content
 
-foo.html.ltext bar.js.ltext -- Type checks!
+foo.html.ltext bar.js.ltext -- Type checks ✓ !
 foo baz -- Does not type check
 ```
 
