@@ -8,3 +8,5 @@ cabal-dev
 .hsenv
 .cabal-sandbox/
 cabal.sandbox.config
+
+*.swp
