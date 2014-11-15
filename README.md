@@ -126,12 +126,12 @@ foo.html.ltext :: (a.html + a.css + a.js) => a -> Content
 bar.js.ltext :: Content
 baz.md.ltext :: Content
 
-foo.html.ltext bar.js.ltext -- Type checks ✓ !
-foo baz -- Does not type check
+foo.html.ltext bar.js.ltext -- Type checks ✓
+foo baz                     -- Does not type check
 ```
 
-...note the more consice syntax of `foo baz` - if the file names are unique, we can 
-write _just enough_ to be identified.
+> ...note the more consice syntax of `foo baz` - if the file names are unique, we can 
+> write _just enough_ to be identified.
 
 Anyway, we have two facilities for qualifying a polymorphic type in λtext - 
 inclusion and disclusion. Inclusion means you can be specific of the file 
