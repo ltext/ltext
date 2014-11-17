@@ -144,6 +144,7 @@ accepted syntax:
 |:-------:|:-----:|:-----:|:-------:|
 | `*`     | `+`   | `.foo`| `/.foo` |
 | `&`     | `|`   |       | `-.foo` |
+| `,`     |       |       |         |
 
 So, `(a.foo | a/.bar) => ...` means that a can either be a `.foo`, or not a 
 `.bar`, and `(a-.bar & a-.baz) => ...` means that a cannot be either a `.foo` or 
