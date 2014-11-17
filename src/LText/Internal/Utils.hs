@@ -1,53 +1,32 @@
 module LText.Internal.Utils where
 
 
-import LText.Internal.Types (Type (..))
+import LText.Internal.TypeSigParser.PartypeSig (pExpr, myLexer)
+import LText.Internal.TypeSigParser.AbstypeSig (Expr)
+import LText.Internal.TypeSigParser.ErrM (Err)
 
-import Control.Monad.State
 import Data.String.Utils (startswith)
 
--- | All symbols for type signatures. TODO: Support Qualifiers
-data Symbol = Variable {identifier :: String}
-            | Content
-            | Arrow
-            | OpenParen
-            | CloseParen
-              deriving (Show, Eq)
+startsWith = flip startswith
 
--- | Translate the input string into a list of symbols
-lexify :: String -> [Symbol]
-lexify "" = []
-lexify s | s `startsWith` "->" = Arrow : (lexify $ drop 2 s)
-         | s `startsWith` "(" = OpenParen : (lexify $ drop 1 s)
-         | s `startsWith` ")" = CloseParen : (lexify $ drop 1 s)
-         | s `startsWith` " " = lexify $ drop 1 s
-         | s `startsWith` "Content" = Content : (lexify $ drop 7 s)
-         | otherwise = let (sym, leftover) = getTerm s
-                       in sym : (lexify leftover)
+-- | Convenience function for wrapping strings in quotes
+wrapTerms :: String -> String
+wrapTerms "" = ""
+wrapTerms s | s `startsWith` "Content" = "Content" ++ (wrapTerms $ drop 7 s)
+            | s `startsWith` " "       = " " ++ (wrapTerms $ drop 1 s)
+            | s `startsWith` "->"      = "->" ++ (wrapTerms $ drop 2 s)
+            | s `startsWith` "("       = "(" ++ (wrapTerms $ drop 1 s)
+            | s `startsWith` ")"       = ")" ++ (wrapTerms $ drop 1 s)
+            | otherwise = let (n, word) = grabTil [' ','-','(',')'] s in
+                              (wrapQuotes word) ++ (wrapTerms $ drop n s)
   where
-    getTerm :: String -> (Symbol, String)
-    getTerm x = let (term, n) = x `grabTil` ['-','(',')',' ']
-                in (Variable term, drop n x)
+    grabTil :: [Char] -> String -> (Int, String)
+    grabTil cs str = let word = takeWhile (\x -> and $ map (x /=) cs) str in
+                         (length word, word)
 
-    grabTil :: String -> [Char] -> (String, Int)
-    string `grabTil` chars = let t = takeWhile (\z -> and $ map (z /=) chars) string
-                             in (t, length t)
-    
-    startsWith = flip startswith
+    wrapQuotes :: String -> String
+    wrapQuotes str = ('"' : str) ++ "\""
 
-
-
-data Object = Unit | Term {ident :: String} | Expr
-data Expr = Object
-          | Arrow Object Object
-
--- | The parsing state is either a failure or a partial AST and leftovers
-type ParseState = Either String (Type, String)
-
--- | Convenience function for extracting a successful result
-getResult :: ParseState -> Type
-getResult (Right (t, _)) = t
-
-
-stage :: State Type String
-stage = undefined
+-- | Convenience function for turning a string into the BNFC AST
+parseToAst :: String -> Err Expr
+parseToAst = pExpr . myLexer . wrapTerms
