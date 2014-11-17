@@ -1,12 +1,9 @@
 module LText.Internal.Utils where
 
 
-import LText.Internal.TypeSigParser.PartypeSig (pExpr, myLexer)
-import LText.Internal.TypeSigParser.AbstypeSig (Expr)
-import LText.Internal.TypeSigParser.ErrM (Err)
-
 import Data.String.Utils (startswith)
 
+startsWith :: Eq a => [a] -> [a] -> Bool
 startsWith = flip startswith
 
 -- | Convenience function for wrapping strings in quotes
@@ -26,7 +23,3 @@ wrapTerms s | s `startsWith` "Content" = "Content" ++ (wrapTerms $ drop 7 s)
 
     wrapQuotes :: String -> String
     wrapQuotes str = ('"' : str) ++ "\""
-
--- | Convenience function for turning a string into the BNFC AST
-parseToAst :: String -> Err Expr
-parseToAst = pExpr . myLexer . wrapTerms
