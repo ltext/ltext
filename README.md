@@ -13,19 +13,9 @@ Functional Templates
 to Hindley-Milner parametrically-polymorphic functional type systems like Haskell -
 you create parameters, and just by using them in your content (or using them as
 functions), not only will the function's type be _inferred_, but also the most
-general and most useful type.
-
-For instance:
-
-|file1.txt| file2.txt   | file1.txt.ltext  | file1.txt.ltext file2 |
-|:-------:|:-----------:|:----------------:|:---------------------:|
-| ```     | ```         |```               |```                    |
-| foobar  | Hello World |//$var            |foobar                 |
-| bazqux  | ```         |foobar            |bazqux                 |
-| ```     |             |bazqux            |Hello World            |
-|         |             |$var              |```                    |
-|         |             |```               |                       |
-
+general and most useful type. This gives us a very practical lambda calculus; 
+for any file with content, one can turn it into a function by parameterizing 
+it's, and applying content (or functions) into it.
 
 ## How It Will Work
 
