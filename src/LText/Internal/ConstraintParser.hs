@@ -40,7 +40,7 @@ data Constraint = Constraint {var :: String, ext :: String, mode :: ConstMode}
 
 lexConstr :: String -> Maybe Constraint
 lexConstr s = foldr -- todo
--- accumulator is a maybe? Fuckin... monadic?? `sequence`?
+-- accumulator is a maybe? monadic?? `sequence`?
 
 
 fixWords :: [Symbol] -> [Symbol]

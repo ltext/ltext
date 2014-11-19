@@ -1,16 +1,31 @@
+![ltext](nonsense/ltext.png)
+
 λtext
 =====
 
-![ltext](nonsense/ltext.png)
-
-Lambdas as Templates
+Functional Templates
 
 > __WARNING__ This project is still in it's infancy, so don't expect it to work!
 
 ## Overview
 
-λtext is a text templating engine that uses a variant of the polymorphic lambda 
-calculus (System F) as a means to represent templates.
+λtext turns text files into (higher-order) functions, with a type system similar 
+to Hindley-Milner parametrically-polymorphic functional type systems like Haskell -
+you create parameters, and just by using them in your content (or using them as
+functions), not only will the function's type be _inferred_, but also the most
+general and most useful type.
+
+For instance:
+
+|file1.txt| file2.txt   | file1.txt.ltext  | file1.txt.ltext file2 |
+|:-------:|:-----------:|:----------------:|:---------------------:|
+| ```     | ```         |```               |```                    |
+| foobar  | Hello World |//$var            |foobar                 |
+| bazqux  | ```         |foobar            |bazqux                 |
+| ```     |             |bazqux            |Hello World            |
+|         |             |$var              |```                    |
+|         |             |```               |                       |
+
 
 ## How It Will Work
 
