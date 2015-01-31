@@ -1,6 +1,6 @@
 module LText where
 
-import LText.Internal.Types
+import LText.ATLC
 
 
 -- | larger to smaller: eg) (a -> a) :: Int -> Int

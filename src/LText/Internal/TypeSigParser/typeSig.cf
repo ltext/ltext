@@ -1,5 +1,0 @@
-EArrow. Expr ::= Expr1 "->" Expr ;
-EUnit. Expr1 ::= "Content" ;
-ETerm. Expr1 ::= String ;
-
-coercions Expr 1
