@@ -1,8 +1,10 @@
 \documentclass{winnower}
 
+\usepackage{multicol}
+
 \begin{document}
 
-\title{Title}
+\title{Ambiguously-Typed Lambda Calculus}
 
 \author{Athan Clark}
 \affil{Unaffilliated}
@@ -12,32 +14,53 @@
 \maketitle
 
 \begin{abstract}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi.
+Here, we present the ambiguously-typed lambda calculus - a size-dependent type
+system measuring the \textit{shape} of terms, based on their context, and an
+additional \textit{substitution system}, facilitating the merge and sort of
+multiple terms' parameters.
 \end{abstract}
 
+\cite{Author2year2}
+\citep{AuthorYear}
+\ref{fig:f1}
 
 %-------------------------------------------------%
-\section{Section Heading}
+\section{Motivation}
 %-------------------------------------------------%
 
-Fig~\ref{fig:f1} lorem ipsum dolor sit amet, consectetur adipiscing elit \citep{AuthorYear}. Suspendisse accumsan magna est, quis elementum leo laoreet eu. \cite{Author2year2} donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi.
+The Simply-Typed Lambda Calculus follows from the untyped lambda calculus in that
+there is structural assignment to parameters, and each "step" of arity is
+mechanically separated with $\rightarrow$. Values are given type labels, and
+arguments' types are checked one-for-one to the specification signature. Higher
+order function application, the true nature of lambda calculus, is retained
+through parameter specification (or type signature) nesting.
 
-\begin{table}[t]
-\centering
-\caption{Table Title}
-\begin{tabular*}{ 0.5 \textwidth}{llr}
-\hline
-Column    & Column & Column \\
-\hline
-Row      & data    & data      \\
-Row      & data    & data       \\
-Row      & data    & data      \\
-Row      & data    & data       \\
-\hline
-\end{tabular*}
-\label{table:t1}
-\end{table}
-
+\center{
+\begin{multicols}{2}
+\begin{minipage}{\columnwidth}
+\center{
+\underline{Untyped Lambda Calculus}
+\begin{align*}
+expr = \hspace{2mm} & x\\
+                    & \lambda n \rightarrow E\\
+                    & x \hspace{2mm} y
+\end{align*}
+}
+\end{minipage}
+\break
+\begin{minipage}{\columnwidth}
+\center{
+\underline{Simply-Typed Lambda Calculus}
+\begin{align*}
+expr = \hspace{2mm} & x : \tau\\
+                    & \lambda (x : \tau) \rightarrow E\\
+                    & x \hspace{2mm} y\\
+                    & \tau
+\end{align*}
+}
+\end{minipage}
+\end{multicols}
+}
 
 %-------------------------------------------------%
 \section{Section Heading}

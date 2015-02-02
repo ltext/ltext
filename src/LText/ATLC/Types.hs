@@ -13,7 +13,7 @@ data Result = RTerm Term
 
 -- | All term expressions calculable
 data Expr = Lambda Term Expr
-          | Result
+          | RExpr Result
   deriving (Show, Eq)
 
 -- | A type variable
@@ -48,6 +48,7 @@ data TypeSig = TypeTerm TypeScheme TypeExpr
              | TypeLit Nat
   deriving (Show, Eq)
 
--- | The facilitated parameter listing -> result. This is what we need to unify.
+-- | The facilitated parameters to the result - basically a lambda.
+-- This is what we need to unify.
 data Substitution = Substitution [Term] Result
   deriving (Show, Eq)
