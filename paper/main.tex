@@ -78,8 +78,8 @@ it is the minimum embodyment of higher-order function application and abstractio
 But, there is no beginning, and no end; it suffices only to provide action, and
 not results. This is what the simply-typed lambda calculus fills - it provides
 an encoding of the finite "end" of an expression in it's type, by utilizing
-$\rightarrow$ for each step.\\
-\smallskip
+$\rightarrow$ for each step.
+
 The simply-typed lambda calculus makes a critical decision - it gives up
 infinite arity for the sake of traction and decidable termination.
 We present the ambiguously-typing scheme to give back our
@@ -112,7 +112,7 @@ number literals.
 x &: \forall a \in \mathbb{N}. \Rightarrow &a\label{ex1:eq1}\\
 f &: \forall b \in \mathbb{N}. \Rightarrow &b\label{ex1:eq2}\\
 f \, x &: \forall a \in \mathbb{N}, b \in \mathbb{N}.
-\{a \geq 1\} \Rightarrow &(a - 1) + b\label{ex1:eq3}
+\{a \geq 1\} \Rightarrow &(a - 1) + b\label{ex1:eq3}\\
 \end{align}
 
 \begin{flushleft}
@@ -123,7 +123,28 @@ applied to $x$, we now have a constraint bound to it's
 type variable\footnote{A degenerate consequence of our structureless arity specification
 is that a type variable's reference to it's term must be syntactically in-order -
 $\forall \, a \, b$ over $x \, y$ will match $x$ with $a$, and $y$ with $b$.}.
+Also, because $x$ consumed one parameter in $a$, we must decrement it. Lastly,
+we take the left-over parameters in $x$ and $a-1$ and combine them; in our
+(commutative) sized interpretation, this is simply addition\footnote{This
+neglects the order that the parameters get combined intentionally.}.
+
+Note that I didn't include the type of a lambda. Please be patient; we will find
+that a function's size depends on it's body.
 \end{flushleft}
+
+\subsection{Hand-Wave}
+
+Here is the grammar:
+
+\begin{align}
+e = \hspace{2mm} & x           & \mathrm{term}\\
+                 & \lambda x.e & \mathrm{abstraction}\\
+                 & \lceil e \hspace{2mm} e & \mathrm{inner \, application}\\
+                 & e \hspace{2mm} \lceil e & \mathrm{outer \, application}\\
+                 & e \hspace{2mm} \diamond \rfloor \hspace{2mm} e & \mathrm{merge}\\
+                 & e \hspace{2mm} \lfloor \diamond \hspace{2mm} e & \mathrm{contra-merge}\\
+                 & l & \mathrm{literal}
+\end{align}
 
 \begin{equation}
 \Delta =\sum_{i=1}^N w_i (x_i - \bar{x})^2
