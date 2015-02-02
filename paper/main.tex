@@ -24,7 +24,7 @@ multiple terms' parameters.
 \end{flushleft}
 \end{abstract}
 
-\cite{Author2year2}
+% \cite{Author2year2}
 
 %-------------------------------------------------%
 \section{Motivation}
@@ -117,7 +117,7 @@ f \, x &: \forall a \in \mathbb{N}, b \in \mathbb{N}.
 
 \begin{flushleft}
 In our first examples \ref{ex1:eq1} and \ref{ex1:eq2}, their sizes are purely
-polymorphic because there is no context telling us how the expression should
+polymorphic \textit{because} there is no context telling us how the expression should
 behave. In \ref{ex1:eq3}, we can see some interesting ideas: because $f$ was
 applied to $x$, we now have a constraint bound to it's
 type variable\footnote{A degenerate consequence of our structureless arity specification
@@ -132,61 +132,76 @@ Note that I didn't include the type of a lambda. Please be patient; we will find
 that a function's size depends on it's body.
 \end{flushleft}
 
-\subsection{Hand-Wave}
+\subsection{Grandiose Hand-Wave}
 
-Here is the grammar:
+\begin{flushleft}
+Here is our grammar:
+\end{flushleft}
 
 \begin{align}
-e = \hspace{2mm} & x           & \mathrm{term}\\
-                 & \lambda x.e & \mathrm{abstraction}\\
-                 & \lceil e \hspace{2mm} e & \mathrm{inner \, application}\\
-                 & e \hspace{2mm} \lceil e & \mathrm{outer \, application}\\
-                 & e \hspace{2mm} \diamond \rfloor \hspace{2mm} e & \mathrm{merge}\\
-                 & e \hspace{2mm} \lfloor \diamond \hspace{2mm} e & \mathrm{contra-merge}\\
-                 & l & \mathrm{literal}
+e = \hspace{2mm} & x                          & \mathrm{term}\\
+                 & \lambda x.e                & \mathrm{abstraction}\\
+                 & \lceil e \, e              & \mathrm{inner \, application}\\
+                 & e \, \lceil e              & \mathrm{outer \, application}\\[1em]
+                 & e \, \diamond \rfloor \, e & \mathrm{append}\\
+                 & e \, \lfloor \diamond \, e & \mathrm{contra-append}\\
+                 & l                          & \mathrm{literal}
 \end{align}
 
-\begin{equation}
-\Delta =\sum_{i=1}^N w_i (x_i - \bar{x})^2
-\label{eqn:eq1}
-\end{equation}
+\begin{flushleft}
+The first four elements of our grammar are inherited from our tradtional untyped
+lambda calculus, with two different application styles to handle how parameters
+are combined - we stick with simple precedence in this draft
+\footnote{
+  We could, in theory, make any coinductive zipper facilitate parameter resolution.
+}
+, such that
+$x \, \lceil y$ will precede $y$'s parameters over $x$'s, and vise-versa for
+$\lceil x \, y$.\\
+\vspace{2mm}
 
-%-------------------------------------------------%
-\subsection{Subsection Heading}
-%-------------------------------------------------%
+The last three exist for our free monoid - the normal append takes it's left-most
+argument as most precedent, while contra-append is convenient for short-circuiting
+with rightward precedence.
+Literals are not necessary for the soundness of our system, but they will be for
+terminating execution - $l : 0$.
+\end{flushleft}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi.
+\subsubsection{Operator Type Signatures}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{figure*}
-\begin{center}
-% \includegraphics[scale=0.55]{karyograml.jpg}\vspace{-1.29cm}
-\caption
-{Figure caption. }
-\label{fig:f1}
-\end{center}
-\end{figure*}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{flushleft}
+To give a feel for how the system works, it is important to give a description
+of the operators we use:
+\end{flushleft}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{figure*}
-\begin{center}
-% \includegraphics[scale=0.55]{multipolar2l.jpg}
-\caption
-{Figure caption}
-\label{fig:f2}
-\end{center}
-\end{figure*}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{align}
+\lceil f \, x \, :
+  & \forall a b \in \mathbb{N}. \{a \geq 1\} \Rightarrow & (a-1) + b \label{op:eq1}\\
+f \, \lceil x \, :
+  & \forall a b \in \mathbb{N}. \{a \geq 1\} \Rightarrow & (a-1) + b \label{op:eq2}\\
+x \, \diamond \rfloor \, y :
+  & \forall a b \in \mathbb{N}. \Rightarrow              & a + b\\
+x \, \lfloor \diamond \, y :
+  & \forall a b \in \mathbb{N}. \Rightarrow              & a + b
+\end{align}
 
+\begin{flushleft}
+Our monoid does not apply or reduce our parameter size, while application will.
+Notice that the size is commutative in our parameter stacks - even though
+the parameter stack in \ref{op:eq1} and \ref{op:eq2} are opposite, their size
+is the same.
+\end{flushleft}
 
-%-------------------------------------------------%
-\section{Section Heading}
-%-------------------------------------------------%
+\subsubsection{Elementary Term Type Signatures}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi.
+For verbosity, we show the most simple terms and their types. In
+$\lambda\mathrm{text}$, a literal is a Haskell \texttt{String}:
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra.
+\begin{align}
+x \, :
+  & \forall a \in \mathbb{N}. \Rightarrow & a\\
+\mathrm{\texttt{"foo"}} \, :            & & 0\\
+\end{align}
 
 \bibliographystyle{abbrvnat}
 \bibliography{winnower_template}
@@ -194,6 +209,9 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan ma
 \appendix
 
 \section{Appendix Heading}
+
+\begin{flushleft}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi.
+\end{flushleft}
 
 \end{document}
