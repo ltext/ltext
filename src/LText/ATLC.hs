@@ -3,3 +3,4 @@ module LText.ATLC
   ) where
 
 import LText.ATLC.Types
+import LText.ATLC.Expression

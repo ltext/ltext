@@ -4,6 +4,9 @@
 \usepackage{amsfonts}
 \usepackage{multicol}
 \usepackage[document]{ragged2e}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows}
+
 
 \begin{document}
 
@@ -158,8 +161,8 @@ are combined - we stick with simple precedence in this draft
 , such that
 $x \, \lceil y$ will precede $y$'s parameters over $x$'s, and vise-versa for
 $\lceil x \, y$.\\
-\vspace{2mm}
 
+\vspace{2mm}
 The last three exist for our free monoid - the normal append takes it's left-most
 argument as most precedent, while contra-append is convenient for short-circuiting
 with rightward precedence.
@@ -203,6 +206,113 @@ x \, :
 \mathrm{\texttt{"foo"}} \, :            & & 0\\
 \end{align}
 
+\subsection{Abstraction Type Signature}
+
+\begin{flushleft}
+In the simply-typed lambda calculus, we can't find the entire type signature
+of a lambda term, based solely on the lambda itself - we can see that the
+parameter would prepend a $a \rightarrow \ldots$, but $\ldots$ depends entirely
+on the body $e$ of $\lambda p.e$.
+
+Our system here is similar, but a bit simpler:
+\end{flushleft}
+
+\begin{align}
+p :                  &&& \forall a. \Rightarrow & a\\
+e :                  &&& \forall b. \Rightarrow & b\\
+\lambda p.e : \, &
+  if (p \in ftv(e)) & then \, & \forall a b \in \mathbb{N}. \Rightarrow
+    & (b+1) + a\\
+              &     & else \, & \forall a b \in \mathbb{N}. \Rightarrow
+    & b+1 \label{lam:eq3}
+\end{align}
+
+\begin{flushleft}
+In this instance, our type variables for \ref{lam:eq3} \textit{lenses} into our
+lambda for brevity; our actual implementation will construct our types bottom-up,
+so one should not take this voodoo seriously.
+
+However, our type signature is fairly straigt forward - if $p$ occours in $e$,
+then it's arity must obviously be included in our lambda (but only once - even
+multiple occourances of $p$ in $e$ will still be delegated from $p$'s unique
+parameter listing) - if it's not in our function body, then there will be no
+delegation. This is how we handle constant functions:
+\end{flushleft}
+
+\begin{align}
+\lambda c . \lambda \epsilon . c : & \forall a b \in \mathbb{N} \Rightarrow
+  & a + 1
+\end{align}
+
+\begin{flushleft}
+Note that we don't type-variable match against the lambda body
+because it's already captured with $a$. Absurd hand wave, I know. This will be
+fine going bottom-up with our substitution model.
+\end{flushleft}
+
+\section{Substitution Mapping}
+
+\begin{flushleft}
+We must have some tractable method for this to be legible and actually useful,
+which we attempt to present here. First and foremost is the notion of a
+\textit{substitution mapping} - an idea we can use when modeling lambdas and
+reduction.
+
+\vspace{2mm}
+We are going to sidestep everything we've worked on now to give a different
+perspective of how to model lambdas, via substitution.
+\end{flushleft}
+
+\subsection{Notation}
+
+\newcommand{\head}[1]{\node[shape = rectangle,
+                            minimum width = 2cm] {::= $#1$};\\ }
+\newcommand{\tail}[1]{\node[shape = rectangle,
+                            minimum width = 2cm,
+                            minimum height= 2cm] {$#1$};\\ }
+\newcommand{\zero}{\draw (-1,0) -- (2,0);\\}
+
+\begin{tikzpicture}
+  \matrix[nodes={draw},
+          row sep=0cm,
+          column sep=0.5cm] {
+  \tikzstyle{every node}=[draw]
+  \head{x}
+  \head{y}
+  \tail{a-1}
+  \zero
+  };
+\end{tikzpicture}
+
+\begin{flushleft}
+This diagram can be seen as a manual abstraction in our system - we assign
+countable parameters at the top of our stack to names we use in our substitution
+body, and hand-over the rest to those bound terms. A substitution mapping has
+scope to only the parameters declared, both in the body and fall-over parameters.\\
+
+In a substitution body, we have access to a restricted set of operators - monoidal
+append, term application, and literals. Free variables should not exist\footnote{
+  This will be unavoidable when we translate expressions to substitution maps.
+}, and the operators we use in the body are the plain-jane ones we know and love,
+because precedence is already handled in our stack system.
+\end{flushleft}
+
+\subsection{Translation}
+
+\begin{flushleft}
+We assume that substitution maps are the values referenced by ATLC expressions.
+A substitution map must be constructively finite, but referencing the "rest"
+(for learning purposes) is done through quantification.\\
+
+Literals are 0-ary substitutions, ATLC monoidal append merges respective parameters
+and homomorphically settles natural append in the substitution body. Substitution
+application has a similar flavour; we consume our bound variable in the applyee
+and literally substitute the applied term's substitution body for the variable.
+Abstraction may either bind a free variable (when evaluating our expression),
+or induce a shadow on a previous binding\footnote{\textit{Previous}, because we
+are going "bottom-up".}.
+\end{flushleft}
+
 \bibliographystyle{abbrvnat}
 \bibliography{winnower_template}
 
@@ -211,7 +321,7 @@ x \, :
 \section{Appendix Heading}
 
 \begin{flushleft}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse accumsan magna est, quis elementum leo laoreet eu. Donec sollicitudin elit non massa venenatis, in viverra dolor sagittis. Maecenas ac justo pulvinar, consectetur mauris hendrerit, vulputate lacus. Etiam tristique sapien quis sem commodo, et eleifend tortor viverra. In hac habitasse platea dictumst. Phasellus vel tempus risus, sit amet consectetur massa. Duis rutrum lectus eu ligula egestas iaculis. Sed condimentum, ipsum in dignissim condimentum, nisi turpis blandit massa, et aliquam magna ligula eget lacus. Donec ac eleifend nulla, quis cursus nisi.
+
 \end{flushleft}
 
 \end{document}
