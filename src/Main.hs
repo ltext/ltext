@@ -1,6 +1,8 @@
 {-# LANGUAGE
     DeriveGeneric
   , ScopedTypeVariables
+  , StandaloneDeriving
+  , DeriveAnyClass
   #-}
 
 module Main where
@@ -17,16 +19,17 @@ import Data.Monoid
 import Control.Applicative
 import Control.Monad.Reader
 
--- | We should keep the record field names the same as the long description for
--- options.
-data AppOpts = AppOpts
-  { example :: String }
-  deriving Generic
+data Desitnation = Stdout
+                 | File FilePath
+  deriving (Eq, Show)
 
--- | We make a Monoid instance, simply for overwriting values.
+data AppOpts = AppOpts
+  { output :: Maybe FilePath
+  } deriving (Eq, Show, Generic)
+
 instance Monoid AppOpts where
-  mempty = AppOpts ""
-  (AppOpts _) `mappend` (AppOpts y) = AppOpts y
+  mempty = AppOpts Nothing
+  (AppOpts x) `mappend` (AppOpts y) = AppOpts $ getLast $ Last y <> Last x
 
 instance Y.ToJSON AppOpts where
   toJSON = A.genericToJSON A.defaultOptions
@@ -34,33 +37,37 @@ instance Y.ToJSON AppOpts where
 instance Y.FromJSON AppOpts where
   parseJSON = A.genericParseJSON A.defaultOptions
 
--- | The value we pass around our application as a @Reader@ prefix.
 data Env = Env
-  { exampleEnv :: String }
+  { outputDest :: Desitnation
+  } deriving (Eq, Show)
 
--- | Choose which & how options become visible to the whole application
+
 makeEnv :: AppOpts -> Env
-makeEnv (AppOpts e) = Env e
+makeEnv (AppOpts Nothing)  = Env Stdout
+makeEnv (AppOpts (Just f)) = Env $ File f
 
 -- | Command-line options - all other options, but also a way to declare the
 -- location of the config file.
 data App = App
-  { options :: AppOpts
-  , configLocation :: Maybe String }
+  { expression :: String
+  , options :: AppOpts
+  , configLocation :: Maybe FilePath
+  } deriving (Eq, Show)
 
 -- | OptParse normal options
 appOpts :: Parser AppOpts
 appOpts = AppOpts
-  <$> strOption
-        ( long "example"
-       <> short 'e'
-       <> metavar "STRING"
-       <> help "an example option" )
+  <$> (optional $ strOption
+        ( long "output"
+       <> short 'o'
+       <> metavar "OUTPUT"
+       <> help "output destination" ))
 
 -- | OptParse for command-line specific options
 app :: Parser App
 app = App
-  <$> appOpts
+  <$> ( argument str (metavar "EXPRESSION"))
+  <*> appOpts
   <*> ( optional $ strOption
        ( long "config"
       <> short 'c'
@@ -72,7 +79,7 @@ main = do
   (commandConfig :: App) <- execParser opts
 
   let yamlConfigPath = fromMaybe
-        "config/config.yaml" $
+        "./.ltext/config.yaml" $
         configLocation commandConfig
 
   yamlConfigExist <- doesFileExist yamlConfigPath
@@ -84,9 +91,7 @@ main = do
         then Y.decodeFile yamlConfigPath
         else return Nothing
 
-  let yamlConfig = fromMaybe
-        mempty
-        mYamlConfig
+  let yamlConfig = fromMaybe mempty mYamlConfig
 
   runReader entry $ makeEnv $ yamlConfig <> options commandConfig
 
@@ -94,13 +99,13 @@ main = do
     opts :: ParserInfo App
     opts = info (helper <*> app)
       ( fullDesc
-     <> progDesc "Print out STRING"
-     <> header "foo - a haskell application" )
+     <> progDesc "Evaluate EXPRESSION and send to OUTPUT"
+     <> header "ltext - higher-order file applicator" )
 
 
 -- | Entry point, post options parsing
 entry :: Reader Env (IO ())
 entry = do
   -- query the environment
-  ex <- exampleEnv <$> ask
+  ex <- outputDest <$> ask
   return $ print ex
