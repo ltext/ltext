@@ -16,6 +16,7 @@ import GHC.Generics
 
 import Data.Maybe
 import Data.Monoid
+import Data.Default
 import Control.Applicative
 import Control.Monad.Reader
 
@@ -26,6 +27,9 @@ data Desitnation = Stdout
 data AppOpts = AppOpts
   { output :: Maybe FilePath
   } deriving (Eq, Show, Generic)
+
+instance Default AppOpts where
+  def = AppOpts Nothing
 
 instance Monoid AppOpts where
   mempty = AppOpts Nothing
@@ -66,42 +70,41 @@ appOpts = AppOpts
 -- | OptParse for command-line specific options
 app :: Parser App
 app = App
-  <$> ( argument str (metavar "EXPRESSION"))
+  <$> argument str (metavar "EXPRESSION")
   <*> appOpts
-  <*> ( optional $ strOption
-       ( long "config"
+  <*> optional (strOption $
+         long "config"
       <> short 'c'
       <> metavar "CONFIG"
-      <> help "location of config file" ))
+      <> help "location of config file" )
 
 main :: IO ()
 main = do
-  (commandConfig :: App) <- execParser opts
+  let opts :: ParserInfo App
+      opts = info (helper <*> app)
+        ( fullDesc
+       <> progDesc "Evaluate EXPRESSION and send to OUTPUT"
+       <> header "ltext - higher-order file applicator" )
 
-  let yamlConfigPath = fromMaybe
-        "./.ltext/config.yaml" $
-        configLocation commandConfig
+  (runtimeOpts :: App) <- execParser opts
 
-  yamlConfigExist <- doesFileExist yamlConfigPath
+  let yamlConfigPath = fromMaybe "./.ltext/config.yaml" $
+                         configLocation runtimeOpts
+
+  yamlConfigExist   <- doesFileExist yamlConfigPath
   yamlConfigContent <- if yamlConfigExist
     then readFile yamlConfigPath
     else return ""
 
-  (mYamlConfig :: Maybe AppOpts) <- if yamlConfigExist && yamlConfigContent /= ""
-        then Y.decodeFile yamlConfigPath
-        else return Nothing
+  (eYamlConfig :: Either Y.ParseException AppOpts) <-
+    if yamlConfigExist && not (null yamlConfigContent)
+    then Y.decodeFileEither yamlConfigPath
+    else return $ Right def
 
-  let yamlConfig = fromMaybe mempty mYamlConfig
+  (yamlConfig :: AppOpts) <- either (putStrLn . Y.prettyPrintParseException >> return def)
+                                    return eYamlConfig
 
-  runReader entry $ makeEnv $ yamlConfig <> options commandConfig
-
-  where
-    opts :: ParserInfo App
-    opts = info (helper <*> app)
-      ( fullDesc
-     <> progDesc "Evaluate EXPRESSION and send to OUTPUT"
-     <> header "ltext - higher-order file applicator" )
-
+  runReader entry $ makeEnv $ yamlConfig <> options runtimeOpts
 
 -- | Entry point, post options parsing
 entry :: Reader Env (IO ())

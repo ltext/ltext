@@ -41,6 +41,7 @@ Executable ltext
                       , yaml
                       , aeson
                       , directory
+                      , data-default
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
