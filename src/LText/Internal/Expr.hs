@@ -1,5 +1,17 @@
+{-# LANGUAGE
+    TypeSynonymInstances
+  , FlexibleInstances
+  , MultiParamTypeClasses
+  #-}
+
 module LText.Internal.Expr where
 
+import LText.Internal.Classes
+
+
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+import Data.Maybe
 import qualified Text.PrettyPrint as PP
 
 
@@ -15,6 +27,21 @@ type ExpVar = String
 data Lit = LInt Integer
          | LBool Bool
   deriving (Eq, Ord)
+
+instance Bindable Set.Set ExpVar Exp where
+  fv (EVar n)     = Set.singleton n
+  fv (ELit _)     = empty
+  fv (EApp e1 e2) = fv e1 `union` fv e2
+  fv (EAbs n e)   = n `Set.delete` fv e
+  fv (ELet n x y) = (n `Set.delete` fv y) `union` fv x
+
+instance Substitutable Map.Map ExpVar Exp Exp where
+  apply s (EVar n)     = fromMaybe (EVar n) $ Map.lookup n s
+  apply _ (ELit l)     = ELit l
+  apply s (EApp e1 e2) = EApp (apply s e1) (apply s e2)
+  apply s (EAbs n e)   = EAbs n $ apply (n `Map.delete` s) e
+  apply s (ELet n x y) = ELet n (apply s x) $ apply (n `Map.delete` s) y
+
 
 instance Show Exp where
    showsPrec _ x = shows (prExp x)

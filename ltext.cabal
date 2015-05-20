@@ -23,6 +23,7 @@ Library
                         LText.Internal.Expr
                         LText.Internal.Types
                         LText.Internal.Inference
+                        LText.Internal.Evaluation
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers

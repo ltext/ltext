@@ -24,12 +24,15 @@ type TypeVar = String
 
 data Prenex = Prenex [TypeVar] Type
 
-type Subst = Map.Map TypeVar Type
+type Subst name domain = Map.Map name domain
 
-nullSubst :: Subst
+
+nullSubst :: Subst TypeVar Type
 nullSubst = Map.empty
 
-composeSubst :: Subst -> Subst -> Subst
+composeSubst :: Subst TypeVar Type
+             -> Subst TypeVar Type
+             -> Subst TypeVar Type
 composeSubst s1 s2 = fmap (apply s1) s2 `union` s1
 
 
