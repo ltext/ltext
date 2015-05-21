@@ -19,7 +19,7 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      LText.Internal
                         LText.Internal.Classes
-                        LText.Internal.Constraints
+                        -- LText.Internal.Constraints
                         LText.Internal.Expr
                         LText.Internal.Types
                         LText.Internal.Inference

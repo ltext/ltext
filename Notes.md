@@ -37,6 +37,11 @@ that a span of text will not affect the meaning of a file.
 
 We need delimiters that occur in the text normally.
 
+- Should be palindome / mirrored
+- Should be the same for all variables in a template
+- Should delete replace variable delimiters, __and__ up-to surrounding
+  unobtrusive delimiters as well, if they exist
+
 ##### Jade-Style
 
 - `{{foo}}`
@@ -46,24 +51,3 @@ We need delimiters that occur in the text normally.
 ##### Others
 
 - `#foo#`
-
-## Renderer
-
-### Padding and Clipping
-
-Can be declared at either variable call sites (`v`), or template definition (`t`).
-
-> Shouldn't remove content of the parent - ie, can't remove container whitespace from a `t`.
-
-#### Padding
-
-- make new lines (`t`, `v`)
-- make new spaces (`t`, `v`)
-- indentation (`v`)
-
-#### Clipping
-
-- remove inserted new lines (`v`)
-- remove inserted new spaces (`v`)
-
-## Lookup

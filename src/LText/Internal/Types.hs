@@ -15,9 +15,8 @@ import qualified Text.PrettyPrint           as PP
 
 
 data Type = TVar TypeVar
-          | TInt
-          | TBool
           | TFun Type Type
+          | TText
   deriving (Eq, Ord)
 
 type TypeVar = String
@@ -38,9 +37,8 @@ composeSubst s1 s2 = fmap (apply s1) s2 `union` s1
 
 instance Bindable Set.Set TypeVar Type where
   fv (TVar n)     = Set.singleton n
-  fv TInt         = empty
-  fv TBool        = empty
   fv (TFun t1 t2) = fv t1 `union` fv t2
+  fv TText        = empty
 
 instance Substitutable Map.Map TypeVar Type Type where
   apply s (TVar n)     = fromMaybe (TVar n) $ Map.lookup n s
@@ -60,9 +58,8 @@ instance Show Type where
 
 prType :: Type -> PP.Doc
 prType (TVar n)   = PP.text n
-prType TInt       = PP.text "Int"
-prType TBool      = PP.text "Bool"
 prType (TFun t s) = prParenType t PP.<+> PP.text "->" PP.<+> prType s
+prType TText      = PP.text "Text"
 
 prParenType :: Type -> PP.Doc
 prParenType t = case t of
@@ -73,6 +70,6 @@ instance Show Prenex where
   showsPrec _ x = shows (prPrenex x)
 
 prPrenex :: Prenex -> PP.Doc
-prPrenex (Prenex vars t) = PP.text "All" PP.<+>
+prPrenex (Prenex vars t) = PP.text "∀" PP.<+>
                            PP.hcat (PP.punctuate PP.comma (map PP.text vars))
                            PP.<> PP.text "." PP.<+> prType t

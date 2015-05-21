@@ -57,7 +57,7 @@ newTyVar prefix = do
 -- | Replaces bound type variables with free, fresh ones
 instantiate :: Prenex -> TI Type
 instantiate (Prenex vars t) = do
-  nvars <- mapM (\ _ -> newTyVar "a") vars
+  nvars <- mapM newTyVar vars
   return $ apply (Map.fromList $ zip vars nvars) t
 
 -- | Most general unifier
@@ -67,8 +67,7 @@ mgu (TFun l r) (TFun l' r')  = do s1 <- mgu l l'
                                   return (s1 `composeSubst` s2)
 mgu (TVar u) t               = varBind u t
 mgu t (TVar u)               = varBind u t
-mgu TInt TInt                = return nullSubst
-mgu TBool TBool              = return nullSubst
+mgu TText TText              = return nullSubst
 mgu t1 t2                    = throwE $ "Types do not unify: " ++ show t1 ++
                                         " vs. " ++ show t2
 
@@ -86,11 +85,6 @@ ti (Context env) (EVar n) = case Map.lookup n env of
   Nothing     ->  throwE $ "unbound variable: " ++ n
   Just sigma  ->  do  t <- instantiate sigma
                       return (nullSubst, t)
-
-ti _ (ELit l) = tiLit l
-  where
-    tiLit (LInt _)   =  return (nullSubst, TInt)
-    tiLit (LBool _)  =  return (nullSubst, TBool)
 
 ti env (EAbs n e) = do
   tv <- newTyVar "a"
@@ -114,7 +108,29 @@ ti env (ELet x e1 e2) = do
   (s2, t2) <- ti (apply s1 env'') e2
   return (s1 `composeSubst` s2, t2)
 
+ti _ (EText _) = return (nullSubst, TText)
+
+ti env (EConc e1 e2) = do
+  (s1, t1) <- ti env e1
+  case apply s1 t1 of
+    TText -> do
+      (s2, t2) <- ti env e2
+      case apply s2 t2 of
+        TText -> return (nullSubst, TText)
+        _     -> throwE $ "Cannot concatenate expressions of type " ++ show t2
+    _     -> throwE $ "Cannot concatenate expressions of type " ++ show t1
+
+  return (nullSubst, TText)
+
+
 typeInference :: Context -> Exp -> TI Type
 typeInference env e = do
   (s, t) <- ti env e
   return (apply s t)
+
+test :: Exp -> IO ()
+test e = do
+  (res, _) <- runTI (typeInference (Context Map.empty) e)
+  case res of
+    Left err  ->  putStrLn $ "error: " ++ err
+    Right t   ->  putStrLn $ show e ++ " :: " ++ show t
