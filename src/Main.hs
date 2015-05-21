@@ -1,8 +1,6 @@
 {-# LANGUAGE
     DeriveGeneric
   , ScopedTypeVariables
-  , StandaloneDeriving
-  , DeriveAnyClass
   #-}
 
 module Main where
@@ -61,11 +59,11 @@ data App = App
 -- | OptParse normal options
 appOpts :: Parser AppOpts
 appOpts = AppOpts
-  <$> (optional $ strOption
-        ( long "output"
+  <$> optional ( strOption $
+          long "output"
        <> short 'o'
        <> metavar "OUTPUT"
-       <> help "output destination" ))
+       <> help "output destination" )
 
 -- | OptParse for command-line specific options
 app :: Parser App

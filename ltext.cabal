@@ -24,11 +24,20 @@ Library
                         LText.Internal.Types
                         LText.Internal.Inference
                         LText.Internal.Evaluation
+                        LText.Parser.Unobtrusive
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers
                       , containers
                       , pretty
+                      , conduit
+                      , conduit-extra
+                      , conduit-combinators
+                      , attoparsec
+                      , text
+                      , bytestring
+                      , blaze-builder
+
 
 Executable ltext
   Default-Language:     Haskell2010
