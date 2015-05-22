@@ -13,24 +13,26 @@ import Control.Applicative
 -- | Parser for expressions. Note - cannot parse @EConc@ or @EText@ constructors -
 -- they are implicit, and not considered in evaluation.
 parseExpr :: Parser Exp
-parseExpr =
-      parseVar
-  <|> parseAbs
-  <|> parseApp
+parseExpr = parseApp
   where
-    parseVar = do
-      v <- some letter
-      return $ EVar v
     parseAbs = do
       char '\\'
       n <- some letter
-      some space
+      skipSpace
       string "->"
-      some space
+      skipSpace
       e <- parseExpr
       return $ EAbs n e
+    parseParen = do
+      char '('
+      skipSpace
+      e <- parseExpr
+      skipSpace
+      char ')'
+      return e
+    parseVar = do
+      n <- some letter
+      return $ EVar n
     parseApp = do
-      e1 <- parseExpr
-      some space
-      e2 <- parseExpr
-      return $ EApp e1 e2
+      es <- (parseParen <|> parseAbs <|> parseVar) `sepBy1` space
+      return $ foldl1 EApp es
