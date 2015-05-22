@@ -14,12 +14,12 @@ import qualified Data.Set                   as Set
 import qualified Text.PrettyPrint           as PP
 
 
+type TypeVar = String
+
 data Type = TVar TypeVar
           | TFun Type Type
           | TText
   deriving (Eq, Ord)
-
-type TypeVar = String
 
 data Prenex = Prenex [TypeVar] Type
 

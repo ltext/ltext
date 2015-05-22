@@ -25,6 +25,8 @@ Library
                         LText.Internal.Inference
                         LText.Internal.Evaluation
                         LText.Parser.Unobtrusive
+                        LText.Parser.Header
+                        LText.Parser.Expr
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers
@@ -33,6 +35,7 @@ Library
                       , conduit
                       , conduit-extra
                       , conduit-combinators
+                      , mmorph
                       , attoparsec
                       , text
                       , bytestring

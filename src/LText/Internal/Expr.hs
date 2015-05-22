@@ -56,12 +56,12 @@ prExp (ELet x b body) = PP.text "let" PP.<+>
                         prExp b PP.<+> PP.text "in" PP.$$
                         PP.nest 2 (prExp body)
 prExp (EApp e1 e2)    = PP.parens (prExp e1) PP.<+> prParenExp e2
-prExp (EAbs n e)      = PP.char 'λ' PP.<> PP.text n PP.<+>
-                        PP.text "->" PP.<+>
-                        prExp e
+prExp (EAbs n e)      = PP.char 'λ' PP.<> PP.text n PP.<>
+                        PP.char '.' PP.<+> prExp e
 prExp (EText fs)      = PP.text "#" PP.<>
                         PP.hcat (PP.punctuate PP.comma $ map (PP.text . fst) fs)
-prExp (EConc e1 e2)   = prExp e1 PP.<+> PP.text "<>" PP.<+> prExp e2
+prExp (EConc e1 e2)   = PP.parens (prExp e1) PP.<+> PP.text "<>" PP.<+>
+                        PP.parens (prExp e2)
 
 prParenExp :: Exp -> PP.Doc
 prParenExp t = case t of

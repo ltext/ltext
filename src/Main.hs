@@ -18,20 +18,20 @@ import Data.Default
 import Control.Applicative
 import Control.Monad.Reader
 
-data Desitnation = Stdout
-                 | File FilePath
-  deriving (Eq, Show)
-
 data AppOpts = AppOpts
   { output :: Maybe FilePath
+  , left :: Maybe String
+  , right :: Maybe String
   } deriving (Eq, Show, Generic)
 
 instance Default AppOpts where
-  def = AppOpts Nothing
+  def = AppOpts Nothing Nothing Nothing
 
 instance Monoid AppOpts where
-  mempty = AppOpts Nothing
-  (AppOpts x) `mappend` (AppOpts y) = AppOpts $ getLast $ Last y <> Last x
+  mempty = def
+  (AppOpts x l r) `mappend` (AppOpts y l' r') = AppOpts (getLast $ Last y <> Last x)
+                                                        (getLast $ Last l <> Last l')
+                                                        (getLast $ Last r <> Last r')
 
 instance Y.ToJSON AppOpts where
   toJSON = A.genericToJSON A.defaultOptions
@@ -39,20 +39,27 @@ instance Y.ToJSON AppOpts where
 instance Y.FromJSON AppOpts where
   parseJSON = A.genericParseJSON A.defaultOptions
 
+
+data Desitnation = Stdout
+                 | File FilePath
+  deriving (Eq, Show)
+
 data Env = Env
   { outputDest :: Desitnation
+  , leftDelim  :: Maybe String
+  , rightDelim :: Maybe String
   } deriving (Eq, Show)
 
 
 makeEnv :: AppOpts -> Env
-makeEnv (AppOpts Nothing)  = Env Stdout
-makeEnv (AppOpts (Just f)) = Env $ File f
+makeEnv (AppOpts Nothing l r)  = Env Stdout l r
+makeEnv (AppOpts (Just f) l r) = Env (File f) l r
 
 -- | Command-line options - all other options, but also a way to declare the
 -- location of the config file.
 data App = App
-  { expression :: String
-  , options :: AppOpts
+  { expression     :: String
+  , options        :: AppOpts
   , configLocation :: Maybe FilePath
   } deriving (Eq, Show)
 
@@ -64,6 +71,16 @@ appOpts = AppOpts
        <> short 'o'
        <> metavar "OUTPUT"
        <> help "output destination" )
+  <*> optional ( strOption $
+          long "left"
+       <> short 'l'
+       <> metavar "LEFTDELIM"
+       <> help "left delimiter" )
+  <*> optional ( strOption $
+          long "right"
+       <> short 'r'
+       <> metavar "RIGHTDELIM"
+       <> help "right delimiter" )
 
 -- | OptParse for command-line specific options
 app :: Parser App
