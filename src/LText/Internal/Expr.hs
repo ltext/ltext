@@ -11,11 +11,11 @@ import LText.Internal.Classes
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Text.PrettyPrint as PP
-import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
 
 import Data.Maybe
 
-type Span = (FilePath, T.Text)
+type Span = (FilePath, LT.Text)
 
 type ExpVar = String
 
@@ -26,7 +26,6 @@ data Exp = EVar ExpVar
          | EText [Span] -- post-concatenation spans of text
          | EConc Exp Exp
   deriving (Eq, Ord)
-
 
 instance Bindable Set.Set ExpVar Exp where
   fv (EVar n)      = Set.singleton n

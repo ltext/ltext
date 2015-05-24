@@ -139,9 +139,19 @@ entry :: ( MonadIO m
          , MonadReader Env m
          ) => String -> m ()
 entry e = do
-  let files :: Set.Set String
-      files = fv $ parse parseExpr "" $ LT.pack e
+  (mainExpr:[]) <- printErr [] $ parse parseExpr "" $ LT.pack e
 
-  exprs <- liftIO $ mapM (\f -> LT.readFile f >>= return . parse (parseDocument f) f) $ Set.toList files
+  exprs <- liftIO $ mapM (\f -> LT.readFile f >>= return . parse (parseDocument f) f) $
+             Set.toList $ fv mainExpr
+  (exprs' :: [Exp]) <- printErrs exprs
+  l <- leftDelim <$> ask
+  r <- rightDelim <$> ask
 
-  liftIO $ print $ exprs
+  liftIO $ print $ render (l,r) $ head exprs'
+  where
+    printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
+    printErr acc (Left err) = liftIO $ print err >> return acc
+    printErr acc (Right expr) = return $ expr : acc
+
+    printErrs :: MonadIO m => [Either P.ParseError Exp] -> m [Exp]
+    printErrs = foldM printErr []

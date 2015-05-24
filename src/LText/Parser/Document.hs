@@ -6,6 +6,7 @@ import Text.Parsec
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
+import Data.Maybe
 import Control.Monad
 import Control.Monad.Trans.Except
 
@@ -14,6 +15,9 @@ import Control.Monad.Trans.Except
 type Var = String
 
 type HeaderSchema = (String, [Var], String)
+
+showHeader :: HeaderSchema -> String
+showHeader (l,vs,r) = unwords $ [l] ++ vs ++ [r]
 
 getHeader :: FilePath -> String -> Except String HeaderSchema
 getHeader name line = let line' = words line in
@@ -39,7 +43,7 @@ parseDocument name = do
   foldM (\acc n -> return $ EAbs n acc) bodyExpr vs
   where
     buildExpr :: Either String Exp -> Parsec LT.Text u Exp
-    buildExpr (Left body)  = return $ EText [(name, T.pack body)]
+    buildExpr (Left body)  = return $ EText [(name, LT.pack body)]
     buildExpr (Right expr) = return expr
 
     go acc x = buildExpr x >>= (\x' -> return $ EConc x' acc)
@@ -76,3 +80,35 @@ parseExpr = parseApp
     parseApp = do
       es <- (parseParen <|> parseAbs <|> parseVar) `sepBy1` space
       return $ foldl1 EApp es
+
+
+-- | turn head arity to list
+makeHeaderSchema :: [String] -> (String, String) -> Exp -> (HeaderSchema, Exp)
+makeHeaderSchema vs lr (EAbs n e) = makeHeaderSchema (vs ++ [n]) lr e
+makeHeaderSchema vs (l,r) e = ((l,vs,r), e)
+
+
+render :: (Maybe String, Maybe String) -> Exp -> LT.Text
+render (l,r) e
+  | hasArity e =
+      let l' = fromMaybe (error "No left delimiter for >0 arity result") l
+          r' = fromMaybe (error "No right delimiter for >0 arity result") r
+          (header, e') = makeHeaderSchema [] (l',r') e
+          header' = LT.pack $ showHeader header
+          body ex = case ex of
+            EText ts    -> LT.unlines $ map snd ts
+            EConc e1 e2 -> LT.unlines [body e1, body e2]
+      in
+      LT.unlines [header', body e']
+  | otherwise =
+      let body ex = case ex of
+            EText ts    -> LT.unlines $ map snd ts
+            EConc e1 e2 -> LT.unlines [body e1, body e2]
+      in
+      body e
+
+
+-- | Post beta reduction
+hasArity :: Exp -> Bool
+hasArity (EAbs _ _) = True
+hasArity _ = False
