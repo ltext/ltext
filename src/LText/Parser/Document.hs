@@ -1,14 +1,28 @@
 module LText.Parser.Document where
 
-import LText.Parser.Header
-import LText.Parser.Expr
 import LText.Internal.Expr
 
 import Text.Parsec
 import qualified Data.Text as T
 
-import Data.Composition
-import Control.Monad.Except
+import Control.Monad
+import Control.Monad.Trans.Except
+
+
+
+type Var = String
+
+type HeaderSchema = (String, [Var], String)
+
+getHeader :: FilePath -> String -> Except String HeaderSchema
+getHeader name line = let line' = words line in
+  case line' of
+    []                 -> throwE $ "No header declared in `" ++ name ++"`."
+    xs | length xs < 2 -> throwE $ "No delimiters declared in the header of `" ++ name ++"`."
+       | otherwise -> return ( head line'
+                             , init $ drop 1 line'
+                             , last line'
+                             )
 
 
 parseDocument :: FilePath -> Parsec T.Text u Exp
@@ -31,3 +45,33 @@ parseDocument name = do
 
     eitherP :: Parsec s u a -> Parsec s u b -> Parsec s u (Either a b)
     eitherP a b = (Left <$> try a) <|> (Right <$> try b)
+
+
+
+
+-- | Parser for expressions. Note - cannot parse @EConc@ or @EText@ constructors -
+-- they are implicit, and not considered in evaluation.
+parseExpr :: Parsec T.Text u Exp
+parseExpr = parseApp
+  where
+    parseAbs = do
+      char '\\'
+      n <- many1 letter
+      skipMany space
+      string "->"
+      skipMany space
+      e <- parseExpr
+      return $ EAbs n e
+    parseParen = do
+      char '('
+      skipMany space
+      e <- parseExpr
+      skipMany space
+      char ')'
+      return e
+    parseVar = do
+      n <- many1 letter
+      return $ EVar n
+    parseApp = do
+      es <- (parseParen <|> parseAbs <|> parseVar) `sepBy1` space
+      return $ foldl1 EApp es
