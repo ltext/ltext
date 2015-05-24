@@ -5,33 +5,33 @@
 module LText.Parser.Expr where
 
 import LText.Internal.Expr
-import Data.Attoparsec.Text
+import Text.Parsec
+import qualified Data.Text as T
 
-import Control.Applicative
 
 
 -- | Parser for expressions. Note - cannot parse @EConc@ or @EText@ constructors -
 -- they are implicit, and not considered in evaluation.
-parseExpr :: Parser Exp
+parseExpr :: Parsec T.Text u Exp
 parseExpr = parseApp
   where
     parseAbs = do
       char '\\'
-      n <- some letter
-      skipSpace
+      n <- many1 letter
+      skipMany space
       string "->"
-      skipSpace
+      skipMany space
       e <- parseExpr
       return $ EAbs n e
     parseParen = do
       char '('
-      skipSpace
+      skipMany space
       e <- parseExpr
-      skipSpace
+      skipMany space
       char ')'
       return e
     parseVar = do
-      n <- some letter
+      n <- many1 letter
       return $ EVar n
     parseApp = do
       es <- (parseParen <|> parseAbs <|> parseVar) `sepBy1` space

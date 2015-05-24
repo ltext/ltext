@@ -27,6 +27,7 @@ Library
                         LText.Parser.Unobtrusive
                         LText.Parser.Header
                         LText.Parser.Expr
+                        LText.Parser.Document
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers
@@ -36,10 +37,13 @@ Library
                       , conduit-extra
                       , conduit-combinators
                       , mmorph
+                      , exceptions
                       , attoparsec
                       , text
                       , bytestring
                       , blaze-builder
+                      , parsec
+                      , composition
 
 
 Executable ltext

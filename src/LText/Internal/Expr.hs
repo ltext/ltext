@@ -11,13 +11,13 @@ import LText.Internal.Classes
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Text.PrettyPrint as PP
-import Data.Conduit.Attoparsec
+import qualified Data.Text as T
 
 import Data.Maybe
 
+type Span = (FilePath, T.Text)
 
--- | A span of text from a file
-type Span = (FilePath, PositionRange)
+type ExpVar = String
 
 data Exp = EVar ExpVar
          | EApp Exp Exp
@@ -27,7 +27,6 @@ data Exp = EVar ExpVar
          | EConc Exp Exp
   deriving (Eq, Ord)
 
-type ExpVar = String
 
 instance Bindable Set.Set ExpVar Exp where
   fv (EVar n)      = Set.singleton n
