@@ -1,9 +1,14 @@
 {-# LANGUAGE
     DeriveGeneric
   , ScopedTypeVariables
+  , FlexibleContexts
   #-}
 
 module Main where
+
+import LText.Parser.Document
+import LText.Internal.Classes
+import LText.Internal.Expr
 
 import Options.Applicative
 import qualified Data.Yaml as Y
@@ -12,9 +17,16 @@ import qualified Data.Aeson.Types as A
 import System.Directory (doesFileExist)
 import GHC.Generics
 
+import Text.Parsec hiding (optional, ParseError)
+import qualified Text.Parsec as P
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.IO as LT
+
 import Data.Maybe
 import Data.Monoid
 import Data.Default
+import qualified Data.Set as Set
 import Control.Applicative
 import Control.Monad.Reader
 
@@ -119,11 +131,17 @@ main = do
   (yamlConfig :: AppOpts) <- either (putStrLn . Y.prettyPrintParseException >> return def)
                                     return eYamlConfig
 
-  runReader entry $ makeEnv $ yamlConfig <> options runtimeOpts
+  runReaderT (entry $ expression runtimeOpts) $
+    makeEnv $ yamlConfig <> options runtimeOpts
 
 -- | Entry point, post options parsing
-entry :: Reader Env (IO ())
-entry = do
-  -- query the environment
-  ex <- outputDest <$> ask
-  return $ print ex
+entry :: ( MonadIO m
+         , MonadReader Env m
+         ) => String -> m ()
+entry e = do
+  let files :: Set.Set String
+      files = fv $ parse parseExpr "" $ LT.pack e
+
+  exprs <- liftIO $ mapM (\f -> LT.readFile f >>= return . parse (parseDocument f) f) $ Set.toList files
+
+  liftIO $ print $ exprs

@@ -4,6 +4,7 @@ import LText.Internal.Expr
 
 import Text.Parsec
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
 
 import Control.Monad
 import Control.Monad.Trans.Except
@@ -25,7 +26,7 @@ getHeader name line = let line' = words line in
                              )
 
 
-parseDocument :: FilePath -> Parsec T.Text u Exp
+parseDocument :: FilePath -> Parsec LT.Text u Exp
 parseDocument name = do
   firstLine <- manyTill anyChar newline
   let (l,vs,r) = case runExcept $ getHeader name firstLine of
@@ -37,7 +38,7 @@ parseDocument name = do
   bodyExpr <- foldM go lastExpr $ tail chunks
   foldM (\acc n -> return $ EAbs n acc) bodyExpr vs
   where
-    buildExpr :: Either String Exp -> Parsec T.Text u Exp
+    buildExpr :: Either String Exp -> Parsec LT.Text u Exp
     buildExpr (Left body)  = return $ EText [(name, T.pack body)]
     buildExpr (Right expr) = return expr
 
@@ -51,12 +52,12 @@ parseDocument name = do
 
 -- | Parser for expressions. Note - cannot parse @EConc@ or @EText@ constructors -
 -- they are implicit, and not considered in evaluation.
-parseExpr :: Parsec T.Text u Exp
+parseExpr :: Parsec LT.Text u Exp
 parseExpr = parseApp
   where
     parseAbs = do
       char '\\'
-      n <- many1 letter
+      n <- many1 anyChar
       skipMany space
       string "->"
       skipMany space
@@ -70,7 +71,7 @@ parseExpr = parseApp
       char ')'
       return e
     parseVar = do
-      n <- many1 letter
+      n <- many1 anyChar
       return $ EVar n
     parseApp = do
       es <- (parseParen <|> parseAbs <|> parseVar) `sepBy1` space

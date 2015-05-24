@@ -33,7 +33,6 @@ Library
                       , pretty
                       , text
                       , parsec
-                      , composition
 
 
 Executable ltext
@@ -48,6 +47,11 @@ Executable ltext
                       , aeson
                       , directory
                       , data-default
+                      , text
+                      , parsec
+                      , containers
+                      , transformers
+                      , pretty
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
