@@ -26,9 +26,12 @@ import qualified Data.Text.Lazy.IO as LT
 import Data.Maybe
 import Data.Monoid
 import Data.Default
+import Data.Functor.Composition
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import Control.Applicative
 import Control.Monad.Reader
+import Control.Monad
 
 data AppOpts = AppOpts
   { output :: Maybe FilePath
@@ -139,15 +142,23 @@ entry :: ( MonadIO m
          , MonadReader Env m
          ) => String -> m ()
 entry e = do
-  (mainExpr:[]) <- printErr [] $ parse parseExpr "" $ LT.pack e
+  -- TODO: Not correct type for single expression
+  (mainExpr :: Exp) <- head <$$> printErr [] $ parse parseExpr "" $ LT.pack e
 
-  exprs <- liftIO $ mapM (\f -> LT.readFile f >>= return . parse (parseDocument f) f) $
-             Set.toList $ fv mainExpr
-  (exprs' :: [Exp]) <- printErrs exprs
+  exprFiles' <- liftIO $ mapM (\f -> liftM (parse (parseDocument f) f) $ LT.readFile f) $
+                  Set.toList $ fv mainExpr
+  (exprFiles :: [Exp]) <- printErrs exprFiles'
   l <- leftDelim <$> ask
   r <- rightDelim <$> ask
 
-  liftIO $ print $ render (l,r) $ head exprs'
+  let subst :: Map.Map String Exp
+      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` exprFiles
+      expr = apply subst mainExpr
+
+  liftIO $ print "testing..."
+  liftIO $ print expr
+
+  liftIO $ LT.putStr $ render (l,r) expr
   where
     printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
     printErr acc (Left err) = liftIO $ print err >> return acc

@@ -36,17 +36,19 @@ parseDocument name = do
   let (l,vs,r) = case runExcept $ getHeader name firstLine of
                       Right hs -> hs
                       Left err -> error err
-  chunks <- many $ eitherP (manyTill anyChar $ string l)
-                           (string l *> (parseExpr <* string r))
-  lastExpr <- buildExpr $ head chunks
-  bodyExpr <- foldM go lastExpr $ tail chunks
+  -- top-first, bottom-last
+  chunks <- many $ eitherP (manyTill anyChar $ string l) -- Left - before left delim
+                           (string l *> (parseExpr <* string r)) -- Right - between delims
+  bodyExprFirst <- buildExpr $ head chunks
+  bodyExpr <- foldM go bodyExprFirst $ tail chunks
   foldM (\acc n -> return $ EAbs n acc) bodyExpr vs
   where
     buildExpr :: Either String Exp -> Parsec LT.Text u Exp
     buildExpr (Left body)  = return $ EText [(name, LT.pack body)]
     buildExpr (Right expr) = return expr
 
-    go acc x = buildExpr x >>= (\x' -> return $ EConc x' acc)
+    -- I wish there was foldrM :\
+    go acc = liftM (EConc acc) . buildExpr -- right-append
 
     eitherP :: Parsec s u a -> Parsec s u b -> Parsec s u (Either a b)
     eitherP a b = (Left <$> try a) <|> (Right <$> try b)
@@ -82,33 +84,28 @@ parseExpr = parseApp
       return $ foldl1 EApp es
 
 
--- | turn head arity to list
-makeHeaderSchema :: [String] -> (String, String) -> Exp -> (HeaderSchema, Exp)
-makeHeaderSchema vs lr (EAbs n e) = makeHeaderSchema (vs ++ [n]) lr e
-makeHeaderSchema vs (l,r) e = ((l,vs,r), e)
+-- | turn head of template's arity into list - still need to render inner expressions
+renderHeaderSchema :: [String] -> (String, String) -> Exp -> (HeaderSchema, Exp)
+renderHeaderSchema vs lr (EAbs n e) = renderHeaderSchema (vs ++ [n]) lr e
+renderHeaderSchema vs (l,r) e       = ((l,vs,r), e)
 
 
 render :: (Maybe String, Maybe String) -> Exp -> LT.Text
 render (l,r) e
   | hasArity e =
-      let l' = fromMaybe (error "No left delimiter for >0 arity result") l
-          r' = fromMaybe (error "No right delimiter for >0 arity result") r
-          (header, e') = makeHeaderSchema [] (l',r') e
+      let l' = fromMaybe (error "No left delimiter supplied for result with > 0 arity") l
+          r' = fromMaybe (error "No right delimiter supplied for result with > 0 arity") r
+          (header, e') = renderHeaderSchema [] (l',r') e
           header' = LT.pack $ showHeader header
-          body ex = case ex of
-            EText ts    -> LT.unlines $ map snd ts
-            EConc e1 e2 -> LT.unlines [body e1, body e2]
       in
-      LT.unlines [header', body e']
-  | otherwise =
-      let body ex = case ex of
-            EText ts    -> LT.unlines $ map snd ts
-            EConc e1 e2 -> LT.unlines [body e1, body e2]
-      in
-      body e
+      LT.unlines [header', renderBody e']
+  | otherwise = renderBody e
+  where
+    renderBody (EText ts) = LT.unlines $ concatMap (LT.lines . snd) ts
+    renderBody (EConc e1 e2) = LT.unlines [renderBody e1, renderBody e2]
 
 
--- | Post beta reduction
+-- | Note - only use post-beta reduction: this function is partial
 hasArity :: Exp -> Bool
 hasArity (EAbs _ _) = True
 hasArity _ = False

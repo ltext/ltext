@@ -52,6 +52,7 @@ Executable ltext
                       , containers
                       , transformers
                       , pretty
+                      , composition-extra
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0

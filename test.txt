@@ -1,7 +1,7 @@
-//{{ x }}
+## x ##
 
 Some dummy text
 
-//{{ x }}
+## x ##
 
 Woo!
