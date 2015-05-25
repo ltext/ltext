@@ -145,18 +145,17 @@ entry e = do
   -- TODO: Not correct type for single expression
   (mainExpr :: Exp) <- head <$$> printErr [] $ parse parseExpr "" $ LT.pack e
 
-  exprFiles' <- liftIO $ mapM (\f -> liftM (parse (parseDocument f) f) $ LT.readFile f) $
-                  Set.toList $ fv mainExpr
-  (exprFiles :: [Exp]) <- printErrs exprFiles'
+  fileExprs' <- liftIO $ mapM (\f -> do
+                  content <- liftIO $ LT.readFile f
+                  runParserT (parseDocument f) () f content
+                ) $ Set.toList $ fv mainExpr
+  (fileExprs :: [Exp]) <- printErrs fileExprs'
   l <- leftDelim <$> ask
   r <- rightDelim <$> ask
 
   let subst :: Map.Map String Exp
-      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` exprFiles
+      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
       expr = apply subst mainExpr
-
-  liftIO $ print "testing..."
-  liftIO $ print expr
 
   liftIO $ LT.putStr $ render (l,r) expr
   where

@@ -1,3 +1,8 @@
+{-# LANGUAGE
+    ScopedTypeVariables
+  , FlexibleContexts
+  #-}
+
 module LText.Parser.Document where
 
 import LText.Internal.Expr
@@ -9,6 +14,10 @@ import qualified Data.Text.Lazy as LT
 import Data.Maybe
 import Control.Monad
 import Control.Monad.Trans.Except
+import Control.Monad.IO.Class
+
+import Debug.Trace (traceShow)
+import Control.DeepSeq (force)
 
 
 
@@ -29,41 +38,53 @@ getHeader name line = let line' = words line in
                              , last line'
                              )
 
+parseBody :: Monad m => String -> ParsecT LT.Text u m String
+parseBody l = manyTill anyChar $ try $ eof <|> (return () <* string l)
 
-parseDocument :: FilePath -> Parsec LT.Text u Exp
+parseDelim :: Monad m => (String, String) -> ParsecT LT.Text u m Exp
+parseDelim (l,r) = between (string l) (string r) parseExpr
+
+parseChunks :: Monad m => (String, String) -> ParsecT LT.Text u m [Either String Exp]
+parseChunks (l,r) = many $ eitherP (parseBody l) $ parseDelim (l,r)
+
+parseDocument :: MonadIO m =>
+                 FilePath -> ParsecT LT.Text u m Exp
 parseDocument name = do
   firstLine <- manyTill anyChar newline
   let (l,vs,r) = case runExcept $ getHeader name firstLine of
                       Right hs -> hs
                       Left err -> error err
   -- top-first, bottom-last
-  chunks <- many $ eitherP (manyTill anyChar $ string l) -- Left - before left delim
-                           (string l *> (parseExpr <* string r)) -- Right - between delims
+  (chunks :: [Either String Exp]) <- parseChunks (l,r)
+
+  liftIO $ print chunks
   bodyExprFirst <- buildExpr $ head chunks
   bodyExpr <- foldM go bodyExprFirst $ tail chunks
   foldM (\acc n -> return $ EAbs n acc) bodyExpr vs
   where
-    buildExpr :: Either String Exp -> Parsec LT.Text u Exp
+    buildExpr :: Monad m =>
+                 Either String Exp -> ParsecT LT.Text u m Exp
     buildExpr (Left body)  = return $ EText [(name, LT.pack body)]
     buildExpr (Right expr) = return expr
 
-    -- I wish there was foldrM :\
-    go acc = liftM (EConc acc) . buildExpr -- right-append
+    go acc = liftM (EConc acc) . buildExpr -- right-append to EConc
 
-    eitherP :: Parsec s u a -> Parsec s u b -> Parsec s u (Either a b)
-    eitherP a b = (Left <$> try a) <|> (Right <$> try b)
 
+eitherP :: Monad m =>
+           ParsecT s u m a -> ParsecT s u m b -> ParsecT s u m (Either a b)
+eitherP a b = (Left <$> a) <|> (Right <$> b)
 
 
 
 -- | Parser for expressions. Note - cannot parse @EConc@ or @EText@ constructors -
 -- they are implicit, and not considered in evaluation.
-parseExpr :: Parsec LT.Text u Exp
+parseExpr :: Monad m =>
+             ParsecT LT.Text u m Exp
 parseExpr = parseApp
   where
     parseAbs = do
       char '\\'
-      n <- many1 anyChar
+      n <- many1 (alphaNum <|> char '.')
       skipMany space
       string "->"
       skipMany space
@@ -77,7 +98,7 @@ parseExpr = parseApp
       char ')'
       return e
     parseVar = do
-      n <- many1 anyChar
+      n <- many1 (alphaNum <|> char '.')
       return $ EVar n
     parseApp = do
       es <- (parseParen <|> parseAbs <|> parseVar) `sepBy1` space
@@ -108,4 +129,4 @@ render (l,r) e
 -- | Note - only use post-beta reduction: this function is partial
 hasArity :: Exp -> Bool
 hasArity (EAbs _ _) = True
-hasArity _ = False
+hasArity _          = False
