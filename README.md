@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/ltext/ltext.png?label=ready&title=Ready)](https://waffle.io/ltext/ltext)
 ![ltext](nonsense/ltext.png)
 
 λtext
