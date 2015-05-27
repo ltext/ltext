@@ -2,6 +2,7 @@
     DeriveGeneric
   , ScopedTypeVariables
   , FlexibleContexts
+  , PackageImports
   #-}
 
 module Main where
@@ -26,7 +27,7 @@ import qualified Data.Text.Lazy.IO as LT
 import Data.Maybe
 import Data.Monoid
 import Data.Default
-import Data.Functor.Composition
+-- import "compositon-extra" Data.Functor.Composition
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Control.Applicative
@@ -142,26 +143,29 @@ entry :: ( MonadIO m
          , MonadReader Env m
          ) => String -> m ()
 entry e = do
+  liftIO $ print e
+
   -- TODO: Not correct type for single expression
-  (mainExpr :: Exp) <- head <$$> printErr [] $ parse parseExpr "" $ LT.pack e
 
-  fileExprs' <- liftIO $ mapM (\f -> do
-                  content <- liftIO $ LT.readFile f
-                  runParserT (parseDocument f) () f content
-                ) $ Set.toList $ fv mainExpr
-  (fileExprs :: [Exp]) <- printErrs fileExprs'
-  l <- leftDelim <$> ask
-  r <- rightDelim <$> ask
-
-  let subst :: Map.Map String Exp
-      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
-      expr = apply subst mainExpr
-
-  liftIO $ LT.putStr $ render (l,r) expr
-  where
-    printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
-    printErr acc (Left err) = liftIO $ print err >> return acc
-    printErr acc (Right expr) = return $ expr : acc
-
-    printErrs :: MonadIO m => [Either P.ParseError Exp] -> m [Exp]
-    printErrs = foldM printErr []
+  -- (mainExpr :: Exp) <- head <$$> printErr [] $ parseExpr e
+  --
+  -- fileExprs' <- liftIO $ mapM (\f -> do
+  --                 content <- liftIO $ LT.readFile f
+  --                 runParserT (parseDocument f) () f content
+  --               ) $ Set.toList $ fv mainExpr
+  -- (fileExprs :: [Exp]) <- printErrs fileExprs'
+  -- l <- leftDelim <$> ask
+  -- r <- rightDelim <$> ask
+  --
+  -- let subst :: Map.Map String Exp
+  --     subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
+  --     expr = apply subst mainExpr
+  --
+  -- liftIO $ LT.putStr $ render (l,r) expr
+  -- where
+  --   printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
+  --   printErr acc (Left err) = liftIO $ print err >> return acc
+  --   printErr acc (Right expr) = return $ expr : acc
+  --
+  --   printErrs :: MonadIO m => [Either P.ParseError Exp] -> m [Exp]
+  --   printErrs = foldM printErr []

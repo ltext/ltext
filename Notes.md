@@ -51,3 +51,11 @@ We need delimiters that occur in the text normally.
 ##### Others
 
 - `#foo#`
+
+
+## File Names
+
+- `\`
+- Parens: `(` or `)`
+- arrow: `->`
+    - `-` or `>` is OK
