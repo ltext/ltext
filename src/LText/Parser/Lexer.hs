@@ -14,26 +14,16 @@ data ExprTokens = TLamb
                 | TLParen
                 | TRParen
                 | TIdent String
+                | TGroup [ExprTokens]
   deriving (Eq)
 
 instance Show ExprTokens where
   show TLamb = "λ"
-  show TArrow = "->"
+  show TArrow = "→"
   show TLParen = "("
   show TRParen = ")"
   show (TIdent s) = s
-
-data ExprString = SLamb
-                | SArrow
-                | SIdent String
-                | SGroup ExprString
-  deriving (Eq)
-
-instance Show ExprString where
-  show SLamb = "λ"
-  show SArrow = "->"
-  show (SIdent s) = s
-  show (SGroup e) = show e
+  show (TGroup ts) = "(" ++ concatMap show ts ++ ")"
 
 
 data FollowingToken = FollowsBackslash
@@ -58,6 +48,7 @@ tokenize :: ( MonadState TokenState m
             ) => String -> m [ExprTokens]
 tokenize s = go $ words s
   where
+    go [] = return []
     go ("->":xs) = do
       put $ TokenState Nothing
       (:) TArrow <$> go xs
@@ -78,7 +69,21 @@ tokenize s = go $ words s
                           rest <- go xs
                           return $ TLamb:TIdent (tail x):rest
               | head x == '(' = do rest <- go xs
-                                   return $ TLParen:TIdent (tail x):rest
+                                   if last x == ')'
+                                   then return $ TLParen:TIdent (tail $ init x):TRParen:rest
+                                   else return $ TLParen:TIdent (tail x):rest
               | last x == ')' = do rest <- go xs
                                    return $ TIdent (init x):TRParen:rest
               | otherwise = (:) (TIdent x) <$> go xs
+
+
+--        acc           input             so-far        remainder
+group :: ([ExprTokens], [ExprTokens]) -> ([ExprTokens], [ExprTokens])
+group (acc, []) =
+  (acc, [])
+group (acc, TLParen:xs) = let (layer, rest) = group ([], xs) in
+  (acc ++ [TGroup layer], rest)
+group (acc, TRParen:xs) =
+  (acc, xs)
+group (acc, x:xs) =
+  (acc ++ [x], xs)
