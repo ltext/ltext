@@ -30,9 +30,7 @@ freshExpVar prefix = do
   return $ prefix ++ show s
 
 
--- reduce :: (Substitutable Map.Map ExpVar Exp Exp
---           ) =>
---           Exp -> EV Exp
+reduce :: Exp -> EV Exp
 reduce (EVar n)      = return $ EVar n
 reduce (EApp e1 e2)  = do
   e1' <- reduce e1

@@ -8,8 +8,12 @@
 module Main where
 
 import LText.Parser.Document
+import LText.Parser.Expr
+import LText.Renderer
 import LText.Internal.Classes
 import LText.Internal.Expr
+import LText.Internal.Inference
+import LText.Internal.Evaluation
 
 import Options.Applicative
 import qualified Data.Yaml as Y
@@ -31,23 +35,26 @@ import Data.Default
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Control.Applicative
-import Control.Monad.Reader
 import Control.Monad
+import Control.Monad.Reader
+import Control.Monad.Except (runExceptT)
 
 data AppOpts = AppOpts
   { output :: Maybe FilePath
   , left :: Maybe String
   , right :: Maybe String
+  , typeQuery :: Bool
   } deriving (Eq, Show, Generic)
 
 instance Default AppOpts where
-  def = AppOpts Nothing Nothing Nothing
+  def = AppOpts Nothing Nothing Nothing False
 
 instance Monoid AppOpts where
   mempty = def
-  (AppOpts x l r) `mappend` (AppOpts y l' r') = AppOpts (getLast $ Last y <> Last x)
-                                                        (getLast $ Last l <> Last l')
-                                                        (getLast $ Last r <> Last r')
+  (AppOpts x l r t) `mappend` (AppOpts y l' r' t') = AppOpts (getLast $ Last y <> Last x)
+                                                             (getLast $ Last l <> Last l')
+                                                             (getLast $ Last r <> Last r')
+                                                             (getAny $ Any t <> Any t')
 
 instance Y.ToJSON AppOpts where
   toJSON = A.genericToJSON A.defaultOptions
@@ -64,12 +71,13 @@ data Env = Env
   { outputDest :: Desitnation
   , leftDelim  :: Maybe String
   , rightDelim :: Maybe String
+  , isTypeQuery :: Bool
   } deriving (Eq, Show)
 
 
 makeEnv :: AppOpts -> Env
-makeEnv (AppOpts Nothing l r)  = Env Stdout l r
-makeEnv (AppOpts (Just f) l r) = Env (File f) l r
+makeEnv (AppOpts Nothing l r t)  = Env Stdout l r t
+makeEnv (AppOpts (Just f) l r t) = Env (File f) l r t
 
 -- | Command-line options - all other options, but also a way to declare the
 -- location of the config file.
@@ -97,6 +105,9 @@ appOpts = AppOpts
        <> short 'r'
        <> metavar "RIGHTDELIM"
        <> help "right delimiter" )
+  <*> switch (
+          long "type"
+       <> short 't')
 
 -- | OptParse for command-line specific options
 app :: Parser App
@@ -143,29 +154,37 @@ entry :: ( MonadIO m
          , MonadReader Env m
          ) => String -> m ()
 entry e = do
-  liftIO $ print e
+  e' <- runExceptT $ makeExpr e
+  let mainExpr = case e' of
+        Left err -> error err
+        Right expr -> expr
 
-  -- TODO: Not correct type for single expression
+  fileExprs <- liftIO $ mapM (\f -> do
+                  content <- liftIO $ LT.readFile f
+                  eContentExpr <- runExceptT $ parseDocument f content
+                  return $ fromError eContentExpr
+                ) $ Set.toList $ fv mainExpr
+  -- (fileExprs :: [Exp])  fileExprs'
+  l <- leftDelim <$> ask
+  r <- rightDelim <$> ask
 
-  -- (mainExpr :: Exp) <- head <$$> printErr [] $ parseExpr e
-  --
-  -- fileExprs' <- liftIO $ mapM (\f -> do
-  --                 content <- liftIO $ LT.readFile f
-  --                 runParserT (parseDocument f) () f content
-  --               ) $ Set.toList $ fv mainExpr
-  -- (fileExprs :: [Exp]) <- printErrs fileExprs'
-  -- l <- leftDelim <$> ask
-  -- r <- rightDelim <$> ask
-  --
-  -- let subst :: Map.Map String Exp
-  --     subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
-  --     expr = apply subst mainExpr
-  --
-  -- liftIO $ LT.putStr $ render (l,r) expr
-  -- where
-  --   printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
-  --   printErr acc (Left err) = liftIO $ print err >> return acc
-  --   printErr acc (Right expr) = return $ expr : acc
-  --
-  --   printErrs :: MonadIO m => [Either P.ParseError Exp] -> m [Exp]
-  --   printErrs = foldM printErr []
+  let subst :: Map.Map String Exp
+      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
+      expr = apply subst mainExpr
+
+  app <- ask
+
+  if isTypeQuery app
+  then liftIO $ test expr
+  else liftIO $ LT.putStr $ render (l,r) expr
+  where
+    printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
+    printErr acc (Left err) = liftIO $ print err >> return acc
+    printErr acc (Right expr) = return $ expr : acc
+
+    printErrs :: MonadIO m => [Either P.ParseError Exp] -> m [Exp]
+    printErrs = foldM printErr []
+
+    fromError me = case me of
+      Left err -> error err
+      Right e -> e
