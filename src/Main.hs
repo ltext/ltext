@@ -172,7 +172,10 @@ entry e = do
   let expr' = fromError eitherExpr
 
   if isTypeQuery app
-  then liftIO $ test expr'
+  then liftIO $ do putStrLn "Before reduction:"
+                   test expr
+                   putStrLn "After reduction:"
+                   test expr'
   else liftIO $ LT.putStr $ render (l,r) expr'
   where
     printErr :: MonadIO m => [Expr] -> Either P.ParseError Expr -> m [Expr]

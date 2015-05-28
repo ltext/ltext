@@ -146,6 +146,13 @@ typeInference env e = do
   return (apply s t)
 
 
+isSubtypeOf :: Type -> Type -> Bool
+isSubtypeOf _ (TVar _) = True
+isSubtypeOf (TFun a b) (TFun c d) = isSubtypeOf a c && isSubtypeOf b d
+isSubtypeOf TText _ = True
+isSubtypeOf _ _ = False
+
+
 test :: ( Monad m
         , MonadIO m
         ) => Expr -> m ()
@@ -153,4 +160,5 @@ test e = do
   eRes <- runExceptT $ runTI $ typeInference (Context Map.empty) e
   case eRes of
     Left err -> liftIO $ putStrLn $ "error: " ++ err
-    Right t  -> liftIO $ putStrLn $ show e ++ " :: " ++ show t
+    Right t  -> let q = generalize (Context Map.empty) t in
+      liftIO $ putStrLn $ show e ++ " :: " ++ show q

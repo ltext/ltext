@@ -70,6 +70,7 @@ instance Show Prenex where
   showsPrec _ x = shows (prPrenex x)
 
 prPrenex :: Prenex -> PP.Doc
+prPrenex (Prenex [] t) = prType t
 prPrenex (Prenex vars t) = PP.text "∀" PP.<+>
                            PP.hcat (PP.punctuate PP.comma (map PP.text vars))
                            PP.<> PP.text "." PP.<+> prType t

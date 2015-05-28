@@ -6,6 +6,8 @@ module LText.Internal.Evaluation where
 
 import LText.Internal.Expr
 import LText.Internal.Classes
+import LText.Internal.Inference
+import LText.Internal.Types
 
 import qualified Data.Map as Map
 
@@ -21,7 +23,6 @@ runEv :: ( Monad m
 runEv e = evalStateT e 0
 
 freshExprVar :: ( Monad m
-               , MonadError String m
                , MonadState Int m
                ) => String -> m String
 freshExprVar prefix = do
@@ -31,7 +32,6 @@ freshExprVar prefix = do
 
 
 reduce :: ( Monad m
-          , MonadError String m
           , MonadState Int m
           ) => Expr -> m Expr
 reduce (EVar n)      = return $ EVar n
@@ -41,12 +41,20 @@ reduce (EApp e1 e2)  = do
     EAbs n e1' -> do normRight <- alpha =<< reduce e2
                      reduce $ apply (Map.singleton n normRight) e1' -- beta . alpha
     _ -> return $ EApp e1' e2
-reduce (EAbs n e1) = do
-  e1' <- reduce e1
-  case e1' of
-    EApp e2 (EVar m) | n == m -> return e2 -- eta
-                     | otherwise -> return $ EAbs n e1'
-    _ -> return $ EAbs n e1'
+reduce (EAbs n e1) =
+  case e1 of
+    EApp e2 (EVar m) | n == m -> do
+                        -- et <- runExceptT $ runTI $ typeInference (Context Map.empty) e2
+                        -- case et of
+                        --   Left err -> error err
+                        --   Right t | t `isSubtypeOf` TFun (TVar "a") (TVar "b") ->
+                                      reduce e2 -- eta
+                                  -- | otherwise -> do
+                                  --     e2' <- reduce e2
+                                  --     return $ EAbs n (EApp e2' $ EVar m)
+                     | otherwise -> do e2' <- reduce e2
+                                       return $ EAbs n (EApp e2' $ EVar m)
+    _ -> EAbs n <$> reduce e1
 reduce (ELet n x y) = do
   normRight <- alpha =<< reduce x
   reduce $ apply (Map.singleton n normRight) y
@@ -54,9 +62,7 @@ reduce (EText fs)    = return $ EText fs
 reduce (EConc e1 e2) = (return .* EConc) ==<< reduce e1 =<< reduce e2
 
 
--- TODO: Add concat & text
 alpha :: ( Monad m
-         , MonadError String m
          , MonadState Int m
          ) => Expr -> m Expr
 alpha = go []
