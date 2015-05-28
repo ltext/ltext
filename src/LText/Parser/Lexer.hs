@@ -23,7 +23,7 @@ instance Show ExprTokens where
   show TLParen = "("
   show TRParen = ")"
   show (TIdent s) = s
-  show (TGroup ts) = "(" ++ concatMap show ts ++ ")"
+  show (TGroup ts) = "<" ++ show ts ++ ">"
 
 
 data FollowingToken = FollowsBackslash
@@ -77,13 +77,18 @@ tokenize s = go $ words s
               | otherwise = (:) (TIdent x) <$> go xs
 
 
---        acc           input             so-far        remainder
-group :: ([ExprTokens], [ExprTokens]) -> ([ExprTokens], [ExprTokens])
+-- | Matches brackets and nests token streams
+group :: ( MonadState Integer m
+         ) => ([ExprTokens], [ExprTokens])
+         -> m ([ExprTokens], [ExprTokens])
 group (acc, []) =
-  (acc, [])
-group (acc, TLParen:xs) = let (layer, rest) = group ([], xs) in
-  (acc ++ [TGroup layer], rest)
-group (acc, TRParen:xs) =
-  (acc, xs)
+  return (acc, [])
+group (acc, TLParen:xs) = do
+  (layer, rest) <- group ([], xs)
+  get >>= \x -> put $ x+1
+  return (acc ++ [TGroup layer], rest)
+group (acc, TRParen:xs) = do
+  get >>= \x -> put $ x-1
+  group (acc, xs)
 group (acc, x:xs) =
-  (acc ++ [x], xs)
+  group (acc ++ [x], xs)

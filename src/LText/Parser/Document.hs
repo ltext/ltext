@@ -137,8 +137,9 @@ parseDocument name = do
     buildExpr (Left body)  = return $ EText [(name, LT.pack body)]
     buildExpr (Right exprString) = do
       ts <- lift $ runTokens (tokenize exprString)
-      es <- lift $ runParse (parseExpr ts)
-      return es
+      (ts', n) <- lift $ runStateT (group ([],ts)) 0
+      if n /= 0 then throwError $ "Parser Error: Possibly mismatched brackets - `" ++ show ts ++ "`."
+                else lift $ runParse (parseExpr $ fst ts')
 
     go acc = liftM (EConc acc) . buildExpr -- right-append to EConc
 
