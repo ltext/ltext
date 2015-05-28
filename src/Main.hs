@@ -65,6 +65,10 @@ data Desitnation = Stdout
                  | File FilePath
   deriving (Eq, Show)
 
+-- | Warning - partial function
+getFilePath :: Desitnation -> FilePath
+getFilePath (File s) = s
+
 data Env = Env
   { outputDest :: Desitnation
   , leftDelim  :: Maybe String
@@ -176,7 +180,9 @@ entry e = do
                    test expr
                    putStrLn "After reduction:"
                    test expr'
-  else liftIO $ LT.putStr $ render (l,r) expr'
+  else if outputDest app == Stdout
+       then liftIO $ LT.putStr $ render (l,r) expr'
+       else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr'
   where
     printErr :: MonadIO m => [Expr] -> Either P.ParseError Expr -> m [Expr]
     printErr acc (Left err) = liftIO $ print err >> return acc
