@@ -174,9 +174,11 @@ entry e = do
 
   app <- ask
 
+  expr' <- liftIO $ runEv $ reduce expr
+
   if isTypeQuery app
-  then liftIO $ test expr
-  else liftIO $ LT.putStr $ render (l,r) expr
+  then liftIO $ test expr'
+  else liftIO $ LT.putStr $ render (l,r) expr'
   where
     printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
     printErr acc (Left err) = liftIO $ print err >> return acc

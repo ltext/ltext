@@ -51,8 +51,9 @@ reduce (EText fs)    = return $ EText fs
 reduce (EConc e1 e2) = (return .* EConc) ==<< reduce e1 =<< reduce e2
 
 
+-- TODO: Add concat & text
 -- alpha :: Exp -> EV Exp
-alpha e = go [] e
+alpha = go []
   where
     go xs (EAbs n e1)
       | n `elem` xs = do n' <- freshExpVar n
@@ -61,3 +62,5 @@ alpha e = go [] e
       | otherwise = (return . EAbs n) =<< go (n:xs) e1
     go xs (EApp e1 e2) = (return .* EApp) ==<< go xs e1 =<< go xs e2
     go xs (EVar n) = return $ EVar n
+    go xs (EText ts) = return $ EText ts
+    go xs (EConc e1 e2) = (return .* EConc) ==<< go xs e1 =<< go xs e2
