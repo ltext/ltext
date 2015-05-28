@@ -43,15 +43,7 @@ reduce (EApp e1 e2)  = do
     _ -> return $ EApp e1' e2
 reduce (EAbs n e1) =
   case e1 of
-    EApp e2 (EVar m) | n == m -> do
-                        -- et <- runExceptT $ runTI $ typeInference (Context Map.empty) e2
-                        -- case et of
-                        --   Left err -> error err
-                        --   Right t | t `isSubtypeOf` TFun (TVar "a") (TVar "b") ->
-                                      reduce e2 -- eta
-                                  -- | otherwise -> do
-                                  --     e2' <- reduce e2
-                                  --     return $ EAbs n (EApp e2' $ EVar m)
+    EApp e2 (EVar m) | n == m -> reduce e2 -- eta
                      | otherwise -> do e2' <- reduce e2
                                        return $ EAbs n (EApp e2' $ EVar m)
     _ -> EAbs n <$> reduce e1

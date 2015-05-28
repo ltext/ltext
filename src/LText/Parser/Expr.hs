@@ -75,7 +75,8 @@ parseExpr (TGroup es:xs) = do
   if | inLambdaDec state -> throwError $ "Parser Error: No brackets allowed in lambda declaration - `" ++ show (TGroup es:xs) ++ "`."
      | isNothing (exprSoFar state) -> do
           e <- parseExpr es
-          put $ state {exprSoFar = Just e} -- should have fresh scope & not in lambda dec
+          put $ state { exprSoFar = Just e
+                      , isFreshScope = False } -- should not be in lambda dec
           parseExpr xs
      | otherwise -> do
           let prev = exprSoFar state

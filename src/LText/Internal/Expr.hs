@@ -2,11 +2,14 @@
     TypeSynonymInstances
   , FlexibleInstances
   , MultiParamTypeClasses
+  , GADTs
+  , KindSignatures
   #-}
 
 module LText.Internal.Expr where
 
 import LText.Internal.Classes
+import LText.Internal.Types
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
@@ -44,6 +47,14 @@ instance Substitutable Map.Map ExprVar Expr Expr where
   apply s (ELet n x y)  = ELet n (apply s x) $ apply (n `Map.delete` s) y
   apply _ (EText t)     = EText t
   apply s (EConc e1 e2) = EConc (apply s e1) (apply s e2)
+
+
+data AnnExpr = AAbs (String, Type) (AnnExpr, Type)
+             | AApp (AnnExpr, Type) (AnnExpr, Type)
+             | AVar (String, Type)
+             | AText [(FilePath, LT.Text)]
+             | AConc (AnnExpr, Type) (AnnExpr, Type)
+  deriving (Show, Eq)
 
 
 instance Show Expr where
