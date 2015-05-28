@@ -1,14 +1,12 @@
 Name:                   ltext
-Version:                0.0.0
+Version:                0.0.0.1
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
-Synopsis:               Lambdas as Templates
-Description:            Use lambdas as templating functions for arbitrary
-                        plaintexts. Features type inference, extension-
-                        sensitive formatting, incompatability warnings,
-                        and that's about it!
+Synopsis:               Higher-order file applicator
+Description:            Turn plaintext files into lambdas for templating -
+                        function application has implicit concatenation.
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
 
@@ -35,7 +33,6 @@ Library
                       , pretty
                       , text
                       , parsec
-                      , deepseq
                       , composition
                       , composition-extra
 
@@ -59,7 +56,6 @@ Executable ltext
                       , pretty
                       , composition
                       , composition-extra
-                      , deepseq
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0

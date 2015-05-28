@@ -21,10 +21,6 @@ import Control.Monad.State
 import Control.Monad.Except
 import Control.Monad.IO.Class
 
-import Debug.Trace (traceShow)
-import Control.DeepSeq (force)
-
-
 
 type Var = String
 
