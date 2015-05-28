@@ -77,6 +77,11 @@ tokenize s = go $ words s
               | otherwise = (:) (TIdent x) <$> go xs
 
 
+runGroup :: ( Monad m
+            , MonadError String m
+            ) => StateT Integer m a -> m a
+runGroup m = evalStateT m 0
+
 -- | Matches brackets and nests token streams
 group :: ( MonadState Integer m
          ) => ([ExprTokens], [ExprTokens])
@@ -86,9 +91,18 @@ group (acc, []) =
 group (acc, TLParen:xs) = do
   (layer, rest) <- group ([], xs)
   get >>= \x -> put $ x+1
-  return (acc ++ [TGroup layer], rest)
+  group (acc ++ [TGroup layer], rest)
 group (acc, TRParen:xs) = do
   get >>= \x -> put $ x-1
-  group (acc, xs)
+  return (acc, xs)
 group (acc, x:xs) =
   group (acc ++ [x], xs)
+
+
+lexer :: ( Monad m
+         , MonadError String m
+         ) => String -> m [ExprTokens]
+lexer s = do
+  ts <- runTokens $ tokenize s
+  ts' <- runGroup $ group ([],ts)
+  return $ fst ts'

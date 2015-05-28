@@ -58,14 +58,13 @@ parseChunks (l,r) =
 
 
 data ParseState = ParseState
-  { absState :: Maybe Bool
-  , appState :: [ExpVar]
-  , depthState :: Int
-  , freshAppState :: Bool
+  { inLambdaDec :: Bool -- no groups allowed
+  , isFreshScope :: Bool -- lambda decs need to be fresh
+  , exprSoFar :: Maybe Exp -- facilitates left associativity
   } deriving (Show, Eq)
 
 initParseState :: ParseState
-initParseState = ParseState Nothing [] 0 False
+initParseState = ParseState False True Nothing
 
 runParse :: ( Monad m
             , MonadError String m
@@ -74,46 +73,75 @@ runParse :: ( Monad m
 runParse m = evalStateT m initParseState
 
 
--- expression will need to have a binary tree such that the target of added
--- children will be explicitly declared, and certain operations can shift this
--- target up or down:
---
--- apply: /\o <- target
---      x/\x  <- previous
-
--- left paren:  / \
---           x/\x /\o
---                ^ still needs initial node - foldl1 style
-
--- right paren  x/\o  ->   /\o
---                       x/\ <- delete?
-
-
 -- | Parser for expressions. Note - cannot parse @EConc@ or @EText@ constructors -
 -- they are implicit, and not considered in evaluation.
 parseExpr :: ( MonadState ParseState m
              , MonadError String m
              ) => [ExprTokens] -> m Exp
-parseExpr tokens = undefined
+parseExpr [] = do
+  state <- get
+  if | isNothing (exprSoFar state) -> throwError $ "Parser Error: Empty Sub-expression - `" ++ show state ++ "`."
+     | otherwise -> return $ fromJust $ exprSoFar state
+parseExpr (TLamb:xs) = do
+  state <- get
+  if | inLambdaDec state -> throwError $ "Parser Error: Already in lambda declaration - `" ++ show (TLamb:xs) ++ "`."
+     | isFreshScope state && not (inLambdaDec state) -> do -- second condition /should/ be redundant
+          put $ state {inLambdaDec = True, isFreshScope = False}
+          parseExpr xs
+     | isJust (exprSoFar state) -> throwError $ "Parser broken: lambda after exprSoFar - `" ++ show (TLamb:xs) ++ "`, `" ++ show state ++ "`."
+     | otherwise -> throwError $ "Parser Error: Lambda declarations must be in fresh expression scope - `" ++ show (TLamb:xs) ++ "`."
+parseExpr (TArrow:xs) = do
+  state <- get
+  if | not (inLambdaDec state) -> throwError $ "Parser Error: Not in lambda declaration - `" ++ show (TArrow:xs) ++ "`."
+     | isFreshScope state -> throwError $ "Parser Error: No preceding lambda declaration - `" ++ show (TArrow:xs) ++ "`."
+     | isJust (exprSoFar state) -> throwError $ "Parser broken: arrow after exprSoFar - `" ++ show (TLamb:xs) ++ "`, `" ++ show state ++ "`."
+     | otherwise -> do
+          put $ state {inLambdaDec = False, isFreshScope = True}
+          parseExpr xs
+parseExpr (TIdent n:xs) = do
+  state <- get
+  if | inLambdaDec state -> do
+          e <- parseExpr xs
+          return $ EAbs n e
+     | isFreshScope state
+       && isNothing (exprSoFar state) -> do
+          put $ state { isFreshScope = False
+                      , exprSoFar = Just $ EVar n
+                      }
+          parseExpr xs
+     | not (isFreshScope state)
+       && isJust (exprSoFar state) -> do
+          put $ state {exprSoFar = Just $ EApp (fromJust $ exprSoFar state) $ EVar n}
+          parseExpr xs
+     | otherwise -> throwError $ "Parser broken: identifier not in lambda dec or body - `" ++ show (TIdent n:xs) ++ "`, `" ++ show state ++ "`."
+parseExpr (TGroup es:xs) = do
+  state <- get
+  if | inLambdaDec state -> throwError $ "Parser Error: No brackets allowed in lambda declaration - `" ++ show (TGroup es:xs) ++ "`."
+     | isNothing (exprSoFar state) -> do
+          e <- parseExpr es
+          put $ state {exprSoFar = Just e} -- should have fresh scope & not in lambda dec
+          parseExpr xs
+     | otherwise -> do
+          let prev = exprSoFar state
+          put $ state { exprSoFar = Nothing
+                      , isFreshScope = True
+                      , inLambdaDec = False }
+          e <- parseExpr es
+          state' <- get
+          put $ state { exprSoFar = Just $ EApp (fromJust prev) e
+                      , isFreshScope = False
+                      , inLambdaDec = False }
+          parseExpr xs
 
 
-  -- expr <- foldr go ((Nothing, [], 0), Nothing) tokens
-  -- where
-  --   go TArrow ((Just _, _, _), _) = error "Parse Error: Already ended lambda delcaration."
-  --   go TArrow (_, Nothing) = error "Parse Error: Lambda abstraction without body."
-  --   go TArrow ((Nothing, [], depth), Just e) = ((Just [], [], depth), Just e)
-  --   go TArrow ((Nothing, as, depth), Just e) = ((Just [], [], depth), Just $ EApp (appVars as) e)
-  --
-  --   go TLamb ((Nothing, _, _), _) = error "Parse Error: Must end lambda declaration with `->`."
-  --   go TLamb ((Just [], _, _), _) = error "Parse Error: Empty lambda declaration."
-  --   go TLamb (_, Nothing) = error "Parse Error: Can't end with an empty lambda declaration."
-  --   go TLamb ((Just vs, [], depth), Just e) = ((Nothing, depth), Just $ foldr EAbs e vs)
-  --   go TLamb ((_, as, _), _) = error "Internal Error: No applyees should exist in a lambda declaration."
-  --
-  --   go (TIdent n) ((Just vs, [], depth), Just e) = ((Just $ n : vs, depth), Just e)
-  --   go (TIdent n) ((Nothing, as, depth), Nothing) = ((Nothing, n:as, depth), Nothing)
-  --
-  --   go RParen ((Nothing, as, depth), Nothing) = ((Nothing, [], depth+1), Just $ appVars as)
+makeExpr :: ( Monad m
+            , MonadError String m
+            , MonadIO m
+            ) => String -> m Exp
+makeExpr s = do
+  ts <- lexer s
+  runParse $ parseExpr ts
+
 
 parseDocument :: ( MonadIO m
                  , MonadError String m
