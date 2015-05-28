@@ -112,15 +112,10 @@ ti _ (EText _) = return (nullSubst, TText)
 
 ti env (EConc e1 e2) = do
   (s1, t1) <- ti env e1
-  case apply s1 t1 of
-    TText -> do
-      (s2, t2) <- ti env e2
-      case apply s2 t2 of
-        TText -> return (nullSubst, TText)
-        _     -> throwE $ "Cannot concatenate expressions of type " ++ show t2
-    _     -> throwE $ "Cannot concatenate expressions of type " ++ show t1
-
-  return (nullSubst, TText)
+  (s2, t2) <- ti env e2
+  s3 <- mgu t1 t2
+  s4 <- mgu (apply s3 t1) TText
+  return (s4 `composeSubst` s3 `composeSubst` s2 `composeSubst` s1, TText)
 
 
 typeInference :: Context -> Exp -> TI Type
