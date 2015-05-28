@@ -22,9 +22,7 @@ import qualified Data.Aeson.Types as A
 import System.Directory (doesFileExist)
 import GHC.Generics
 
-import Text.Parsec hiding (optional, ParseError)
 import qualified Text.Parsec as P
-import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
 
@@ -155,16 +153,12 @@ entry :: ( MonadIO m
          ) => String -> m ()
 entry e = do
   e' <- runExceptT $ makeExpr e
-  let mainExpr = case e' of
-        Left err -> error err
-        Right expr -> expr
+  let mainExpr = fromError e'
 
-  fileExprs <- liftIO $ mapM (\f -> do
+  fileExprs <- liftIO $ forM (Set.toList $ fv mainExpr) (\f -> do
                   content <- liftIO $ LT.readFile f
                   eContentExpr <- runExceptT $ parseDocument f content
-                  return $ fromError eContentExpr
-                ) $ Set.toList $ fv mainExpr
-  -- (fileExprs :: [Exp])  fileExprs'
+                  return $ fromError eContentExpr)
   l <- leftDelim <$> ask
   r <- rightDelim <$> ask
 
@@ -174,7 +168,8 @@ entry e = do
 
   app <- ask
 
-  expr' <- liftIO $ runEv $ reduce expr
+  eitherExpr <- runExceptT $ runEv $ reduce expr
+  let expr' = fromError eitherExpr
 
   if isTypeQuery app
   then liftIO $ test expr'

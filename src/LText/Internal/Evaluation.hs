@@ -7,30 +7,33 @@ module LText.Internal.Evaluation where
 import LText.Internal.Expr
 import LText.Internal.Classes
 
-import qualified Data.Set as Set
 import qualified Data.Map as Map
 
 import Data.Composition
 import Control.Monad.Composition
-import Control.Monad.Trans.Except
+import Control.Monad.Except
 import Control.Monad.State
 
 
-type EV a = ExceptT String (StateT Int IO) a
+runEv :: ( Monad m
+         , MonadError String m
+         ) => StateT Int m a -> m a
+runEv e = evalStateT e 0
 
-runEv :: EV a -> IO a
-runEv e = (evalStateT $ runExceptT e) 0 >>= \x -> case x of
-  Left err -> error err
-  Right e' -> return e'
-
-freshExpVar :: String -> EV String
+freshExpVar :: ( Monad m
+               , MonadError String m
+               , MonadState Int m
+               ) => String -> m String
 freshExpVar prefix = do
   s <- get
   put $ s + 1
   return $ prefix ++ show s
 
 
-reduce :: Exp -> EV Exp
+reduce :: ( Monad m
+          , MonadError String m
+          , MonadState Int m
+          ) => Exp -> m Exp
 reduce (EVar n)      = return $ EVar n
 reduce (EApp e1 e2)  = do
   e1' <- reduce e1
@@ -52,7 +55,10 @@ reduce (EConc e1 e2) = (return .* EConc) ==<< reduce e1 =<< reduce e2
 
 
 -- TODO: Add concat & text
--- alpha :: Exp -> EV Exp
+alpha :: ( Monad m
+         , MonadError String m
+         , MonadState Int m
+         ) => Exp -> m Exp
 alpha = go []
   where
     go xs (EAbs n e1)
@@ -61,6 +67,6 @@ alpha = go []
                          return $ EAbs n' $ apply (Map.singleton n $ EVar n') e1'
       | otherwise = (return . EAbs n) =<< go (n:xs) e1
     go xs (EApp e1 e2) = (return .* EApp) ==<< go xs e1 =<< go xs e2
-    go xs (EVar n) = return $ EVar n
-    go xs (EText ts) = return $ EText ts
+    go _  (EVar n) = return $ EVar n
+    go _  (EText ts) = return $ EText ts
     go xs (EConc e1 e2) = (return .* EConc) ==<< go xs e1 =<< go xs e2

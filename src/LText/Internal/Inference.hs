@@ -2,6 +2,7 @@
     TypeSynonymInstances
   , FlexibleInstances
   , MultiParamTypeClasses
+  , FlexibleContexts
   #-}
 
 module LText.Internal.Inference where
@@ -11,7 +12,7 @@ import LText.Internal.Types
 import LText.Internal.Classes
 
 import           Control.Monad.State
-import           Control.Monad.Trans.Except
+import           Control.Monad.Except
 import qualified Data.Map                   as Map
 import qualified Data.Set                   as Set
 
@@ -39,15 +40,21 @@ data TIState = TIState { tiSupply :: Int
                        }
 
 -- | Inference Monad
-type TI a = ExceptT String (StateT TIState IO) a
+type TI m a = ExceptT String (StateT TIState m) a
 
-runTI :: TI a -> IO (Either String a, TIState)
-runTI t = runStateT (runExceptT t) initTIState
+runTI :: ( Monad m
+         , MonadError String m
+         ) => StateT TIState m a -> m a
+runTI t = evalStateT t initTIState
   where initTIState = TIState { tiSupply = 0
                               , tiSubst = nullSubst
                               }
 
-newTyVar :: TypeVar -> TI Type
+
+newTyVar :: ( Monad m
+            , MonadState TIState m
+            , MonadError String m
+            ) => TypeVar -> m Type
 newTyVar prefix = do
   s <- get
   put s { tiSupply = tiSupply s + 1
@@ -55,34 +62,46 @@ newTyVar prefix = do
   return $ TVar $ prefix ++ show (tiSupply s)
 
 -- | Replaces bound type variables with free, fresh ones
-instantiate :: Prenex -> TI Type
+instantiate :: ( Monad m
+               , MonadState TIState m
+               , MonadError String m
+               ) => Prenex -> m Type
 instantiate (Prenex vars t) = do
   nvars <- mapM newTyVar vars
   return $ apply (Map.fromList $ zip vars nvars) t
 
 -- | Most general unifier
-mgu :: Type -> Type -> TI (Subst TypeVar Type)
+mgu :: ( Monad m
+       , MonadState TIState m
+       , MonadError String m
+       ) => Type -> Type -> m (Subst TypeVar Type)
 mgu (TFun l r) (TFun l' r')  = do s1 <- mgu l l'
                                   s2 <- mgu (apply s1 r) (apply s1 r')
                                   return (s1 `composeSubst` s2)
 mgu (TVar u) t               = varBind u t
 mgu t (TVar u)               = varBind u t
 mgu TText TText              = return nullSubst
-mgu t1 t2                    = throwE $ "Types do not unify: " ++ show t1 ++
+mgu t1 t2                    = throwError $ "Types do not unify: " ++ show t1 ++
                                         " vs. " ++ show t2
 
 -- | Makes a substitution @[x -> t]@
-varBind :: TypeVar -> Type -> TI (Subst TypeVar Type)
+varBind :: ( Monad m
+           , MonadState TIState m
+           , MonadError String m
+           ) => TypeVar -> Type -> m (Subst TypeVar Type)
 varBind u t | t == TVar u         = return nullSubst
-            | u `Set.member` fv t = throwE $ "Occur check fails: " ++ u ++
+            | u `Set.member` fv t = throwError $ "Occur check fails: " ++ u ++
                                              " vs. " ++ show t
             | otherwise           = return (Map.singleton u t)
 
 
 -- | Type inference function
-ti :: Context -> Exp -> TI (Subst TypeVar Type, Type)
+ti :: ( Monad m
+      , MonadState TIState m
+      , MonadError String m
+      ) => Context -> Exp -> m (Subst TypeVar Type, Type)
 ti (Context env) (EVar n) = case Map.lookup n env of
-  Nothing     ->  throwE $ "unbound variable: " ++ n
+  Nothing     ->  throwError $ "unbound variable: " ++ n
   Just sigma  ->  do  t <- instantiate sigma
                       return (nullSubst, t)
 
@@ -118,14 +137,20 @@ ti env (EConc e1 e2) = do
   return (s4 `composeSubst` s3 `composeSubst` s2 `composeSubst` s1, TText)
 
 
-typeInference :: Context -> Exp -> TI Type
+typeInference :: ( Monad m
+                 , MonadState TIState m
+                 , MonadError String m
+                 ) => Context -> Exp -> m Type
 typeInference env e = do
   (s, t) <- ti env e
   return (apply s t)
 
-test :: Exp -> IO ()
+
+test :: ( Monad m
+        , MonadIO m
+        ) => Exp -> m ()
 test e = do
-  (res, _) <- runTI (typeInference (Context Map.empty) e)
-  case res of
-    Left err  ->  putStrLn $ "error: " ++ err
-    Right t   ->  putStrLn $ show e ++ " :: " ++ show t
+  eRes <- runExceptT $ runTI $ typeInference (Context Map.empty) e
+  case eRes of
+    Left err -> liftIO $ putStrLn $ "error: " ++ err
+    Right t  -> liftIO $ putStrLn $ show e ++ " :: " ++ show t
