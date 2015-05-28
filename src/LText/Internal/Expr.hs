@@ -19,17 +19,17 @@ import Data.Maybe
 
 type Span = (FilePath, LT.Text)
 
-type ExpVar = String
+type ExprVar = String
 
-data Exp = EVar ExpVar
-         | EApp Exp Exp
-         | EAbs ExpVar Exp
-         | ELet ExpVar Exp Exp
-         | EText [Span] -- post-concatenation spans of text
-         | EConc Exp Exp
+data Expr = EVar ExprVar
+          | EApp Expr Expr
+          | EAbs ExprVar Expr
+          | ELet ExprVar Expr Expr
+          | EText [Span] -- post-concatenation spans of text
+          | EConc Expr Expr
   deriving (Eq, Ord)
 
-instance Bindable Set.Set ExpVar Exp where
+instance Bindable Set.Set ExprVar Expr where
   fv (EVar n)      = Set.singleton n
   fv (EApp e1 e2)  = fv e1 `union` fv e2
   fv (EAbs n e)    = n `Set.delete` fv e
@@ -37,7 +37,7 @@ instance Bindable Set.Set ExpVar Exp where
   fv (EText _)     = empty
   fv (EConc e1 e2) = fv e1 `union` fv e2
 
-instance Substitutable Map.Map ExpVar Exp Exp where
+instance Substitutable Map.Map ExprVar Expr Expr where
   apply s (EVar n)      = fromMaybe (EVar n) $ Map.lookup n s
   apply s (EApp e1 e2)  = EApp (apply s e1) (apply s e2)
   apply s (EAbs n e)    = EAbs n $ apply (n `Map.delete` s) e
@@ -46,10 +46,10 @@ instance Substitutable Map.Map ExpVar Exp Exp where
   apply s (EConc e1 e2) = EConc (apply s e1) (apply s e2)
 
 
-instance Show Exp where
+instance Show Expr where
    showsPrec _ x = shows (prExp x)
 
-prExp :: Exp -> PP.Doc
+prExp :: Expr -> PP.Doc
 prExp (EVar name)     = PP.text name
 prExp (ELet x b body) = PP.text "let" PP.<+>
                         PP.text x PP.<+> PP.text "=" PP.<+>
@@ -63,7 +63,7 @@ prExp (EText fs)      = PP.text "#" PP.<>
 prExp (EConc e1 e2)   = PP.parens (prExp e1) PP.<+> PP.text "<>" PP.<+>
                         PP.parens (prExp e2)
 
-prParenExp :: Exp -> PP.Doc
+prParenExp :: Expr -> PP.Doc
 prParenExp t = case t of
   ELet {}  -> PP.parens (prExp t)
   EApp {}  -> PP.parens (prExp t)

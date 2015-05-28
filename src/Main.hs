@@ -162,7 +162,7 @@ entry e = do
   l <- leftDelim <$> ask
   r <- rightDelim <$> ask
 
-  let subst :: Map.Map String Exp
+  let subst :: Map.Map String Expr
       subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
       expr = apply subst mainExpr
 
@@ -175,11 +175,11 @@ entry e = do
   then liftIO $ test expr'
   else liftIO $ LT.putStr $ render (l,r) expr'
   where
-    printErr :: MonadIO m => [Exp] -> Either P.ParseError Exp -> m [Exp]
+    printErr :: MonadIO m => [Expr] -> Either P.ParseError Expr -> m [Expr]
     printErr acc (Left err) = liftIO $ print err >> return acc
     printErr acc (Right expr) = return $ expr : acc
 
-    printErrs :: MonadIO m => [Either P.ParseError Exp] -> m [Exp]
+    printErrs :: MonadIO m => [Either P.ParseError Expr] -> m [Expr]
     printErrs = foldM printErr []
 
     fromError me = case me of

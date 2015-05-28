@@ -15,12 +15,12 @@ showHeader (l,vs,r) = unwords $ [l] ++ vs ++ [r]
 
 
 -- | turn head of template's arity into list - still need to render inner expressions
-renderHeaderSchema :: [String] -> (String, String) -> Exp -> (HeaderSchema, Exp)
+renderHeaderSchema :: [String] -> (String, String) -> Expr -> (HeaderSchema, Expr)
 renderHeaderSchema vs lr (EAbs n e) = renderHeaderSchema (vs ++ [n]) lr e
 renderHeaderSchema vs (l,r) e       = ((l,vs,r), e)
 
 
-render :: (Maybe String, Maybe String) -> Exp -> LT.Text
+render :: (Maybe String, Maybe String) -> Expr -> LT.Text
 render (l,r) e
   | hasArity e =
       let l' = fromMaybe (error "Error: No left delimiter supplied - result has arity `> 0`.") l
@@ -39,6 +39,6 @@ render (l,r) e
 
 
 -- | Note - only use post-beta reduction: this function is partial
-hasArity :: Exp -> Bool
+hasArity :: Expr -> Bool
 hasArity (EAbs _ _) = True
 hasArity _          = False

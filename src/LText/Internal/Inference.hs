@@ -17,7 +17,7 @@ import qualified Data.Map                   as Map
 import qualified Data.Set                   as Set
 
 
-newtype Context = Context (Map.Map ExpVar Prenex)
+newtype Context = Context (Map.Map ExprVar Prenex)
 
 remove :: Context -> String -> Context
 remove (Context env) var = Context (Map.delete var env)
@@ -99,7 +99,7 @@ varBind u t | t == TVar u         = return nullSubst
 ti :: ( Monad m
       , MonadState TIState m
       , MonadError String m
-      ) => Context -> Exp -> m (Subst TypeVar Type, Type)
+      ) => Context -> Expr -> m (Subst TypeVar Type, Type)
 ti (Context env) (EVar n) = case Map.lookup n env of
   Nothing     ->  throwError $ "unbound variable: " ++ n
   Just sigma  ->  do  t <- instantiate sigma
@@ -140,7 +140,7 @@ ti env (EConc e1 e2) = do
 typeInference :: ( Monad m
                  , MonadState TIState m
                  , MonadError String m
-                 ) => Context -> Exp -> m Type
+                 ) => Context -> Expr -> m Type
 typeInference env e = do
   (s, t) <- ti env e
   return (apply s t)
@@ -148,7 +148,7 @@ typeInference env e = do
 
 test :: ( Monad m
         , MonadIO m
-        ) => Exp -> m ()
+        ) => Expr -> m ()
 test e = do
   eRes <- runExceptT $ runTI $ typeInference (Context Map.empty) e
   case eRes of

@@ -16,7 +16,7 @@ import Control.Monad.Except
 data ParseState = ParseState
   { inLambdaDec :: Bool -- no groups allowed
   , isFreshScope :: Bool -- lambda decs need to be fresh
-  , exprSoFar :: Maybe Exp -- facilitates left associativity
+  , exprSoFar :: Maybe Expr -- facilitates left associativity
   } deriving (Show, Eq)
 
 initParseState :: ParseState
@@ -33,7 +33,7 @@ runParse m = evalStateT m initParseState
 -- they are implicit, and not considered in evaluation.
 parseExpr :: ( MonadState ParseState m
              , MonadError String m
-             ) => [ExprTokens] -> m Exp
+             ) => [ExprTokens] -> m Expr
 parseExpr [] = do
   state <- get
   if | isNothing (exprSoFar state) -> throwError $ "Parser Error: Empty Sub-expression - `" ++ show state ++ "`."
@@ -92,7 +92,7 @@ parseExpr (TGroup es:xs) = do
 
 makeExpr :: ( Monad m
             , MonadError String m
-            ) => String -> m Exp
+            ) => String -> m Expr
 makeExpr s = do
   ts <- lexer s
   runParse $ parseExpr ts

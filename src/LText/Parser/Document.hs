@@ -54,7 +54,7 @@ eitherP a b = (Left <$> a) <|> (Right <$> b)
 
 parseDocument :: ( MonadIO m
                  , MonadError String m
-                 ) => FilePath -> LT.Text -> m Exp
+                 ) => FilePath -> LT.Text -> m Expr
 parseDocument name input = do
   let input' = LT.lines input
 
@@ -67,7 +67,7 @@ parseDocument name input = do
 
 
   where
-    go :: (Exp -> Exp) -> (String, String) -> [LT.Text] -> Exp
+    go :: (Expr -> Expr) -> (String, String) -> [LT.Text] -> Expr
     go header (l,r) lines =
       let lines' :: [[LT.Text]]
           lines' = groupBy (\x y -> not (hasDelims x) && not (hasDelims y)) lines
@@ -75,7 +75,7 @@ parseDocument name input = do
 
       header $ process lines'
       where
-        process :: [[LT.Text]] -> Exp
+        process :: [[LT.Text]] -> Expr
         process [] = error "Error: empty list after grouping."
         process [chunk] | length chunk > 1 = EText [(name, LT.unlines chunk)]
                         | otherwise = case parse (parseDelim (l,r)) name $ head chunk of

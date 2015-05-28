@@ -20,11 +20,11 @@ runEv :: ( Monad m
          ) => StateT Int m a -> m a
 runEv e = evalStateT e 0
 
-freshExpVar :: ( Monad m
+freshExprVar :: ( Monad m
                , MonadError String m
                , MonadState Int m
                ) => String -> m String
-freshExpVar prefix = do
+freshExprVar prefix = do
   s <- get
   put $ s + 1
   return $ prefix ++ show s
@@ -33,7 +33,7 @@ freshExpVar prefix = do
 reduce :: ( Monad m
           , MonadError String m
           , MonadState Int m
-          ) => Exp -> m Exp
+          ) => Expr -> m Expr
 reduce (EVar n)      = return $ EVar n
 reduce (EApp e1 e2)  = do
   e1' <- reduce e1
@@ -58,11 +58,11 @@ reduce (EConc e1 e2) = (return .* EConc) ==<< reduce e1 =<< reduce e2
 alpha :: ( Monad m
          , MonadError String m
          , MonadState Int m
-         ) => Exp -> m Exp
+         ) => Expr -> m Expr
 alpha = go []
   where
     go xs (EAbs n e1)
-      | n `elem` xs = do n' <- freshExpVar n
+      | n `elem` xs = do n' <- freshExprVar n
                          e1' <- go (n:xs) e1
                          return $ EAbs n' $ apply (Map.singleton n $ EVar n') e1'
       | otherwise = (return . EAbs n) =<< go (n:xs) e1
