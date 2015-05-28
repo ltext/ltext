@@ -1,7 +1,0 @@
-## x f ##
-
-Some dummy text
-
-## f x ##
-
-Woo!
