@@ -69,9 +69,13 @@ tokenize s = go $ words s
                           rest <- go xs
                           return $ TLamb:TIdent (tail x):rest
               | head x == '(' = do rest <- go xs
-                                   if last x == ')'
-                                   then return $ TLParen:TIdent (tail $ init x):TRParen:rest
-                                   else return $ TLParen:TIdent (tail x):rest
+                                   if (length (tail x) > 1) && (head (tail x) == '\\')
+                                   then if last x == ')'
+                                        then return $ TLParen:TLamb:TIdent (tail $ tail $ init x):TRParen:rest
+                                        else return $ TLParen:TLamb:TIdent (tail $ tail x):rest
+                                   else if last x == ')'
+                                        then return $ TLParen:TIdent (tail $ init x):TRParen:rest
+                                        else return $ TLParen:TIdent (tail x):rest
               | last x == ')' = do rest <- go xs
                                    return $ TIdent (init x):TRParen:rest
               | otherwise = (:) (TIdent x) <$> go xs

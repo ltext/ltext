@@ -29,7 +29,6 @@ import qualified Data.Text.Lazy.IO as LT
 import Data.Maybe
 import Data.Monoid
 import Data.Default
--- import "compositon-extra" Data.Functor.Composition
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Control.Applicative
@@ -171,6 +170,9 @@ entry e = do
   let subst :: Map.Map String Expr
       subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
       expr = apply subst mainExpr
+
+  eitherExprType <- runExceptT $ runTI $ typeInference (Context Map.empty) expr
+  let exprType = fromError eitherExprType
 
   app <- ask
 

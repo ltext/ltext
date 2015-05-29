@@ -97,3 +97,10 @@ makeExpr :: ( Monad m
 makeExpr s = do
   ts <- lexer s
   runParse $ parseExpr ts
+
+
+testParse s = do
+  eitherExpr <- runExceptT $ makeExpr s
+  case eitherExpr of
+    Left err -> error err
+    Right expr -> return expr

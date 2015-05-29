@@ -146,16 +146,6 @@ typeInference env e = do
   return (apply s t)
 
 
--- isSubtypeOf :: Type -> Type -> Bool
--- isSubtypeOf _ (TVar _) = True
--- isSubtypeOf (TFun a b) (TFun c d) | c == d = a == b
---                                           && isSubtypeOf a c
---                                           && isSubtypeOf b d
---                                   | otherwise = isSubtypeOf a c
---                                              && isSubtypeOf b d
--- isSubtypeOf TText _ = True
--- isSubtypeOf _ _ = False
-
 
 test :: ( Monad m
         , MonadIO m
