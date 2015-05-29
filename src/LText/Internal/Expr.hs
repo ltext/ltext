@@ -2,8 +2,6 @@
     TypeSynonymInstances
   , FlexibleInstances
   , MultiParamTypeClasses
-  , GADTs
-  , KindSignatures
   #-}
 
 module LText.Internal.Expr where

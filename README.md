@@ -15,6 +15,11 @@ Functional Files
 λtext turns text files into higher-order functions, featuring a Hindley-Milner /
 prenex polymorphic type system.
 
+## Installation
+
+```bash
+$> cabal install ltext
+```
 
 ## Usage
 
