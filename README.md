@@ -1,10 +1,11 @@
-[![Stories in Ready](https://badge.waffle.io/ltext/ltext.png?label=ready&title=Ready)](https://waffle.io/ltext/ltext)
 ![ltext](nonsense/ltext.png)
 
 λtext
 =====
 
-Functional Templates
+[![Stories in Ready](https://badge.waffle.io/ltext/ltext.png?label=ready&title=Ready)](https://waffle.io/ltext/ltext)
+
+Functional Files
 
 > __WARNING:__ Partially applying files doesn't allow them to be parsable again
 > (yet) - __only use this if you're fully applying templates__.
@@ -46,3 +47,13 @@ either a different syntax than to the language you're working with - an explicit
 The first line in a file will be tested against to see if it qualifies as a
 lambda header. If you don't want a file have recognized arity, just throw in a
 newline.
+
+#### Options
+
+You can supply options manually with flags:
+
+```bash
+ltext "foo bar" --left "{{" --right "}}" -o "baz"
+```
+
+or, you can store commonly used ones in a YAML file under `./.ltext/config.yaml`:

@@ -38,21 +38,21 @@ import Control.Monad.Reader
 import Control.Monad.Except (runExceptT)
 
 data AppOpts = AppOpts
-  { output :: Maybe FilePath
+  { typeQuery :: Bool
+  , output :: Maybe FilePath
   , left :: Maybe String
   , right :: Maybe String
-  , typeQuery :: Bool
   } deriving (Eq, Show, Generic)
 
 instance Default AppOpts where
-  def = AppOpts Nothing Nothing Nothing False
+  def = AppOpts False Nothing Nothing Nothing
 
 instance Monoid AppOpts where
   mempty = def
-  (AppOpts x l r t) `mappend` (AppOpts y l' r' t') = AppOpts (getLast $ Last y <> Last x)
+  (AppOpts t x l r) `mappend` (AppOpts t' y l' r') = AppOpts (getAny $ Any t <> Any t')
+                                                             (getLast $ Last y <> Last x)
                                                              (getLast $ Last l <> Last l')
                                                              (getLast $ Last r <> Last r')
-                                                             (getAny $ Any t <> Any t')
 
 instance Y.ToJSON AppOpts where
   toJSON = A.genericToJSON A.defaultOptions
@@ -70,16 +70,16 @@ getFilePath :: Desitnation -> FilePath
 getFilePath (File s) = s
 
 data Env = Env
-  { outputDest :: Desitnation
+  { isTypeQuery :: Bool
+  , outputDest :: Desitnation
   , leftDelim  :: Maybe String
   , rightDelim :: Maybe String
-  , isTypeQuery :: Bool
   } deriving (Eq, Show)
 
 
 makeEnv :: AppOpts -> Env
-makeEnv (AppOpts Nothing l r t)  = Env Stdout l r t
-makeEnv (AppOpts (Just f) l r t) = Env (File f) l r t
+makeEnv (AppOpts t Nothing l r)  = Env t Stdout l r
+makeEnv (AppOpts t (Just f) l r) = Env t (File f) l r
 
 -- | Command-line options - all other options, but also a way to declare the
 -- location of the config file.
@@ -92,7 +92,11 @@ data App = App
 -- | OptParse normal options
 appOpts :: Parser AppOpts
 appOpts = AppOpts
-  <$> optional ( strOption $
+  <$> switch (
+          long "type"
+       <> short 't'
+       <> help "query the type signature of an expression")
+  <*> optional ( strOption $
           long "output"
        <> short 'o'
        <> metavar "OUTPUT"
@@ -107,9 +111,6 @@ appOpts = AppOpts
        <> short 'r'
        <> metavar "RIGHTDELIM"
        <> help "right delimiter" )
-  <*> switch (
-          long "type"
-       <> short 't')
 
 -- | OptParse for command-line specific options
 app :: Parser App
@@ -145,7 +146,8 @@ main = do
     then Y.decodeFileEither yamlConfigPath
     else return $ Right def
 
-  (yamlConfig :: AppOpts) <- either (putStrLn . Y.prettyPrintParseException >> return def)
+  (yamlConfig :: AppOpts) <- either (\err -> do putStrLn $ Y.prettyPrintParseException err
+                                                return def)
                                     return eYamlConfig
 
   runReaderT (entry $ expression runtimeOpts) $
