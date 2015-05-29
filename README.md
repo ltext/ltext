@@ -43,13 +43,15 @@ $> ltext "foo bar" --left "{{" --right "}}" -o "baz"
 
 or, you can store commonly used ones in a YAML file under `./.ltext/config.yaml`:
 
-```
+```bash
 $> cat ./.ltext/config.yaml
 
 typeQuery: false
 left: "//{{"
 right: "}}"
+```
 
+```bash
 $> cat foo
 
 ## x ##
@@ -60,7 +62,9 @@ birds
 ## x ##
 
 fsda
+```
 
+```bash
 # keeping delimiters in-line
 $> ltext "foo"
 

@@ -12,3 +12,5 @@ cabal.sandbox.config
 *.swp
 *.swo
 *.swn
+
+.ltext/
