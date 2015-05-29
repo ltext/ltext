@@ -37,7 +37,7 @@ Available options:
   -r,--right RIGHTDELIM    right delimiter
   -c,--config CONFIG       location of config file
 
-
+# as an example
 $> ltext "foo bar" --left "{{" --right "}}" -o "baz"
 ```
 
@@ -61,6 +61,7 @@ birds
 
 fsda
 
+# keeping delimiters in-line
 $> ltext "foo"
 
 //{{ x }}
@@ -69,6 +70,22 @@ asdf
 bird
 
 //{{ x }}
+
+fsda
+
+$> cat bar
+
+hashtagtrashswag
+
+# application
+$> ltext "foo bar"
+
+hashtagtrashswag
+
+asdf
+bird
+
+hashtagtrashswag
 
 fsda
 ```
