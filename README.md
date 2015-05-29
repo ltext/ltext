@@ -15,7 +15,65 @@ Functional Files
 λtext turns text files into higher-order functions, featuring a Hindley-Milner /
 prenex polymorphic type system.
 
-## How It Will Work
+
+## Usage
+
+You can supply options manually with flags:
+
+```bash
+$> ltext --help
+
+ltext - higher-order file applicator
+
+Usage: ltext EXPRESSION [-t|--type] [-o|--output OUTPUT] [-l|--left LEFTDELIM]
+             [-r|--right RIGHTDELIM] [-c|--config CONFIG]
+  Evaluate EXPRESSION and send to OUTPUT
+
+Available options:
+  -h,--help                Show this help text
+  -t,--type                query the type signature of an expression
+  -o,--output OUTPUT       output destination
+  -l,--left LEFTDELIM      left delimiter
+  -r,--right RIGHTDELIM    right delimiter
+  -c,--config CONFIG       location of config file
+
+
+$> ltext "foo bar" --left "{{" --right "}}" -o "baz"
+```
+
+or, you can store commonly used ones in a YAML file under `./.ltext/config.yaml`:
+
+```
+$> cat ./.ltext/config.yaml
+
+typeQuery: false
+left: "//{{"
+right: "}}"
+
+$> cat foo
+
+## x ##
+
+asdf
+birds
+
+## x ##
+
+fsda
+
+$> ltext "foo"
+
+//{{ x }}
+
+asdf
+bird
+
+//{{ x }}
+
+fsda
+```
+
+## How It Works
 
 From λtext's point of view, _any file_ can be a template. Just declare parameters
 in your files (usually in a different syntax than the file's native tongue,
@@ -47,13 +105,3 @@ either a different syntax than to the language you're working with - an explicit
 The first line in a file will be tested against to see if it qualifies as a
 lambda header. If you don't want a file have recognized arity, just throw in a
 newline.
-
-#### Options
-
-You can supply options manually with flags:
-
-```bash
-ltext "foo bar" --left "{{" --right "}}" -o "baz"
-```
-
-or, you can store commonly used ones in a YAML file under `./.ltext/config.yaml`:
