@@ -74,7 +74,7 @@ tokenize s = go $ words s
                                           else TIdent (f x'):rest
                                    return $ TLParen:if (length (tail x) > 1) && (head (tail x) == '\\')
                                               then TLamb:lastParen (tail . tail) init x
-                                              else TLamb:lastParen tail init x
+                                              else lastParen tail init x
               | last x == ')' = do rest <- go xs
                                    return $ TIdent (init x):TRParen:rest
               | otherwise = (:) (TIdent x) <$> go xs
