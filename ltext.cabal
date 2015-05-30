@@ -5,6 +5,7 @@ Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
 Synopsis:               Higher-order file applicator
+Category:               Text, Tools, Utils, Filesystem
 Description:
   λtext is a general-purpose templating utility for text files.
   .
