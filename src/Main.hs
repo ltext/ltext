@@ -128,7 +128,7 @@ main = do
       opts = info (helper <*> app)
         ( fullDesc
        <> progDesc "Evaluate EXPRESSION and send to OUTPUT"
-       <> header "ltext - higher-order file applicator" )
+       <> header "λtext - higher-order file applicator" )
 
   (runtimeOpts :: App) <- execParser opts
 

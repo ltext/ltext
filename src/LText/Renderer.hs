@@ -32,7 +32,7 @@ render (l,r) e
   | otherwise = renderBody e
   where
     renderBody (EText ts) = LT.unlines $ concatMap (LT.lines . snd) ts
-    renderBody (EConc e1 e2) = LT.unlines [renderBody e2, renderBody e1]
+    renderBody (EConc e1 e2) = LT.unlines [renderBody e1, renderBody e2]
     renderBody expr = case (l,r) of
       (Just l', Just r') -> LT.pack $ l' ++ " " ++ show expr ++ " " ++ r'
       _ -> error "Error: free variables occurred during rendering."

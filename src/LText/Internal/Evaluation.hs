@@ -51,8 +51,8 @@ reduce (ELet n x y) = do
   normRight <- alpha =<< reduce x
   reduce $ apply (Map.singleton n normRight) y
 reduce (EText fs)    = return $ EText fs
-reduce (EConc e1 e2) = (return .* EConc) ==<< reduce e1 =<< reduce e2
-
+reduce (EConc e1 e2) = liftM2 EConc (reduce e1) (reduce e2)
+-- concatenation isn't packin'
 
 alpha :: ( Monad m
          , MonadState Int m
