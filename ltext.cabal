@@ -1,12 +1,17 @@
 Name:                   ltext
-Version:                0.0.0.1
+Version:                0.0.0.2
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
 Synopsis:               Higher-order file applicator
-Description:            Turn plaintext files into lambdas for templating -
-                        function application has implicit concatenation.
+Description:
+  λtext is a general-purpose templating utility for text files.
+  .
+  Turn plaintext files into lambdas -
+  function application then becomes concatenation.
+  .
+  Please see the <https://github.com/ltext/ltext github page> for more details.
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
 
