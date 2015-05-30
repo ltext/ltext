@@ -39,8 +39,6 @@ data TIState = TIState { tiSupply :: Int
                        , tiSubst  :: Subst TypeVar Type
                        }
 
--- | Inference Monad
-type TI m a = ExceptT String (StateT TIState m) a
 
 runTI :: ( Monad m
          , MonadError String m
@@ -57,8 +55,7 @@ newTyVar :: ( Monad m
             ) => TypeVar -> m Type
 newTyVar prefix = do
   s <- get
-  put s { tiSupply = tiSupply s + 1
-        }
+  put s {tiSupply = tiSupply s + 1}
   return $ TVar $ prefix ++ show (tiSupply s)
 
 -- | Replaces bound type variables with free, fresh ones
@@ -82,7 +79,7 @@ mgu (TVar u) t               = varBind u t
 mgu t (TVar u)               = varBind u t
 mgu TText TText              = return nullSubst
 mgu t1 t2                    = throwError $ "Types do not unify: " ++ show t1 ++
-                                        " vs. " ++ show t2
+                                            " vs. " ++ show t2
 
 -- | Makes a substitution @[x -> t]@
 varBind :: ( Monad m
@@ -91,7 +88,7 @@ varBind :: ( Monad m
            ) => TypeVar -> Type -> m (Subst TypeVar Type)
 varBind u t | t == TVar u         = return nullSubst
             | u `Set.member` fv t = throwError $ "Occur check fails: " ++ u ++
-                                             " vs. " ++ show t
+                                                 " vs. " ++ show t
             | otherwise           = return (Map.singleton u t)
 
 
@@ -101,9 +98,9 @@ ti :: ( Monad m
       , MonadError String m
       ) => Context -> Expr -> m (Subst TypeVar Type, Type)
 ti (Context env) (EVar n) = case Map.lookup n env of
-  Nothing     ->  throwError $ "unbound variable: " ++ n
-  Just sigma  ->  do  t <- instantiate sigma
-                      return (nullSubst, t)
+  Nothing    -> throwError $ "Unbound variable: " ++ n
+  Just sigma -> do t <- instantiate sigma
+                   return (nullSubst, t)
 
 ti env (EAbs n e) = do
   tv <- newTyVar "a"
@@ -146,13 +143,12 @@ typeInference env e = do
   return (apply s t)
 
 
-
 test :: ( Monad m
         , MonadIO m
         ) => Expr -> m ()
 test e = do
   eRes <- runExceptT $ runTI $ typeInference (Context Map.empty) e
   case eRes of
-    Left err -> liftIO $ putStrLn $ "error: " ++ err
+    Left err -> liftIO $ putStrLn $ "Error: " ++ err
     Right t  -> let q = generalize (Context Map.empty) t in
       liftIO $ putStrLn $ show e ++ " :: " ++ show q

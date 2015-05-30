@@ -21,7 +21,6 @@ Library
                         LText.Internal.Types
                         LText.Internal.Inference
                         LText.Internal.Evaluation
-                        LText.Parser.Unobtrusive
                         LText.Parser.Document
                         LText.Parser.Lexer
                         LText.Parser.Expr

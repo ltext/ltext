@@ -99,6 +99,7 @@ makeExpr s = do
   runParse $ parseExpr ts
 
 
+testParse :: Monad m => String -> m Expr
 testParse s = do
   eitherExpr <- runExceptT $ makeExpr s
   case eitherExpr of

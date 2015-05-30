@@ -23,7 +23,7 @@ instance Show ExprTokens where
   show TLParen = "("
   show TRParen = ")"
   show (TIdent s) = s
-  show (TGroup ts) = "<" ++ show ts ++ ">"
+  show (TGroup ts) = "{" ++ show ts ++ "}"
 
 
 data FollowingToken = FollowsBackslash
@@ -69,13 +69,12 @@ tokenize s = go $ words s
                           rest <- go xs
                           return $ TLamb:TIdent (tail x):rest
               | head x == '(' = do rest <- go xs
-                                   if (length (tail x) > 1) && (head (tail x) == '\\')
-                                   then if last x == ')'
-                                        then return $ TLParen:TLamb:TIdent (tail $ tail $ init x):TRParen:rest
-                                        else return $ TLParen:TLamb:TIdent (tail $ tail x):rest
-                                   else if last x == ')'
-                                        then return $ TLParen:TIdent (tail $ init x):TRParen:rest
-                                        else return $ TLParen:TIdent (tail x):rest
+                                   let lastParen f g x' = if last x' == ')'
+                                          then TIdent (f $ g x'):TRParen:rest
+                                          else TIdent (f x'):rest
+                                   return $ TLParen:if (length (tail x) > 1) && (head (tail x) == '\\')
+                                              then TLamb:lastParen (tail . tail) init x
+                                              else TLamb:lastParen tail init x
               | last x == ')' = do rest <- go xs
                                    return $ TIdent (init x):TRParen:rest
               | otherwise = (:) (TIdent x) <$> go xs

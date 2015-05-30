@@ -6,20 +6,15 @@
 
 module LText.Parser.Document where
 
-import LText.Parser.Lexer
 import LText.Parser.Expr
 import LText.Internal.Expr
 
 import Text.Parsec
-import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
-import Data.Maybe
 import Data.List (groupBy)
-import Control.Monad
 import Control.Monad.State
 import Control.Monad.Except
-import Control.Monad.IO.Class
 
 
 type Var = String
@@ -38,14 +33,8 @@ getHeader name line =
                              , last line'
                              )
 
-
 parseDelim :: Monad m => (String, String) -> ParsecT LT.Text u m String
 parseDelim (l,r) = try (string l) *> manyTill anyChar (try $ string r)
-
-
-eitherP :: Monad m =>
-           ParsecT s u m a -> ParsecT s u m b -> ParsecT s u m (Either a b)
-eitherP a b = (Left <$> a) <|> (Right <$> b)
 
 
 parseDocument :: ( MonadIO m
@@ -60,8 +49,6 @@ parseDocument name input = do
       Nothing -> return $ EText [(name, input)]
       Just (l,vs,r) -> return $
         go (\e -> foldr EAbs e vs) (l,r) $ tail input'
-
-
   where
     go :: (Expr -> Expr) -> (String, String) -> [LT.Text] -> Expr
     go header (l,r) lines =

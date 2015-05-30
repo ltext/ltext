@@ -2,7 +2,6 @@
     DeriveGeneric
   , ScopedTypeVariables
   , FlexibleContexts
-  , PackageImports
   #-}
 
 module Main where
@@ -10,10 +9,7 @@ module Main where
 import LText.Parser.Document
 import LText.Parser.Expr
 import LText.Renderer
-import LText.Internal.Classes
-import LText.Internal.Expr
-import LText.Internal.Inference
-import LText.Internal.Evaluation
+import LText.Internal
 
 import Options.Applicative
 import qualified Data.Yaml as Y
@@ -190,4 +186,4 @@ entry e = do
   where
     fromError me = case me of
       Left err -> error err
-      Right e -> e
+      Right e  -> e
