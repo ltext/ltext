@@ -157,44 +157,37 @@ entry :: ( MonadIO m
          , MonadReader Env m
          ) => String -> m ()
 entry e = do
-  e' <- runExceptT $ makeExpr e
-  let mainExpr = fromError e'
+  eitherMainExpr <- runExceptT $ makeExpr e
+  let mainExpr = fromError eitherMainExpr
 
   fileExprs <- liftIO $ forM (Set.toList $ fv mainExpr) (\f -> do
                   content <- liftIO $ LT.readFile f
                   eContentExpr <- runExceptT $ parseDocument f content
                   return $ fromError eContentExpr)
-  l <- leftDelim <$> ask
-  r <- rightDelim <$> ask
-
-  let subst :: Map.Map String Expr
-      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
-      expr = apply subst mainExpr
-
-  eitherExprType <- runExceptT $ runTI $ typeInference (Context Map.empty) expr
-  let exprType = fromError eitherExprType
 
   app <- ask
 
-  eitherExpr <- runExceptT $ runEv $ reduce expr
-  let expr' = fromError eitherExpr
+  let subst :: Map.Map String Expr
+      subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
+      rawExpr = apply subst mainExpr
+      l = leftDelim app
+      r = rightDelim app
+
+  eitherExprType <- runExceptT $ runTI $ typeInference (Context Map.empty) rawExpr
+  let exprType = fromError eitherExprType
+
+  eitherExpr <- runExceptT $ runEv $ reduce rawExpr
+  let expr = fromError eitherExpr
 
   if isTypeQuery app
   then liftIO $ do putStrLn "Before reduction:"
-                   test expr
+                   test rawExpr
                    putStrLn "After reduction:"
-                   test expr'
+                   test expr
   else if outputDest app == Stdout
-       then liftIO $ LT.putStr $ render (l,r) expr'
-       else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr'
+       then liftIO $ LT.putStr $ render (l,r) expr
+       else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
   where
-    printErr :: MonadIO m => [Expr] -> Either P.ParseError Expr -> m [Expr]
-    printErr acc (Left err) = liftIO $ print err >> return acc
-    printErr acc (Right expr) = return $ expr : acc
-
-    printErrs :: MonadIO m => [Either P.ParseError Expr] -> m [Expr]
-    printErrs = foldM printErr []
-
     fromError me = case me of
       Left err -> error err
       Right e -> e

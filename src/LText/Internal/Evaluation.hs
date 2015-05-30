@@ -6,8 +6,6 @@ module LText.Internal.Evaluation where
 
 import LText.Internal.Expr
 import LText.Internal.Classes
-import LText.Internal.Inference
-import LText.Internal.Types
 
 import qualified Data.Map as Map
 
