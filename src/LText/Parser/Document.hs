@@ -50,7 +50,7 @@ parseDocument name input = do
   case input' of
     [] -> return $ EText [(name, input)]
     _  -> case getHeader $ LT.unpack $ head input' of
-      Nothing -> return $ EText [(name, input)]
+      Nothing -> return $ EText [(name, LT.unlines $ tail input')]
       Just (l,vs,r) ->
         return $ go (\e -> foldr EAbs e vs) (l,r) $ tail input'
   where
