@@ -5,10 +5,7 @@
 
 [![Stories in Ready](https://badge.waffle.io/ltext/ltext.png?label=ready&title=Ready)](https://waffle.io/ltext/ltext)
 
-Functional Files
-
-> __WARNING:__ Partially applying files doesn't allow them to be parsable again
-> (yet) - __only use this if you're fully applying templates__.
+> General-Purpose Templating Utility
 
 # Overview
 

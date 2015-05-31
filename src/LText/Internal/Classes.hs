@@ -9,6 +9,8 @@ module LText.Internal.Classes where
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Data.Foldable
+
 
 class SetLike (c :: * -> *) where
   empty :: c a

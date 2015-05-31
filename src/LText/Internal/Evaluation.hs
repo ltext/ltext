@@ -9,8 +9,6 @@ import LText.Internal.Classes
 
 import qualified Data.Map as Map
 
-import Data.Composition
-import Control.Monad.Composition
 import Control.Monad.Except
 import Control.Monad.State
 
@@ -30,6 +28,7 @@ freshExprVar prefix = do
 
 
 reduce :: ( Monad m
+          , Functor m
           , MonadState (Int, Bool) m
           ) => Expr -> m Expr
 reduce (EVar n)     = return $ EVar n
