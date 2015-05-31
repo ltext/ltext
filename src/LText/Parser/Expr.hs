@@ -35,57 +35,56 @@ parseExpr :: ( MonadState ParseState m
              , MonadError String m
              ) => [ExprTokens] -> m Expr
 parseExpr [] = do
-  state <- get
-  if | isNothing (exprSoFar state) -> throwError $ "Parser Error: Empty Sub-expression - `" ++ show state ++ "`."
-     | otherwise -> return $ fromJust $ exprSoFar state
+  lexState <- get
+  if | isNothing (exprSoFar lexState) -> throwError $ "Parser Error: Empty Sub-expression - `" ++ show lexState ++ "`."
+     | otherwise -> return $ fromJust $ exprSoFar lexState
 parseExpr (TLamb:xs) = do
-  state <- get
-  if | inLambdaDec state -> throwError $ "Parser Error: Already in lambda declaration - `" ++ show (TLamb:xs) ++ "`."
-     | isFreshScope state && not (inLambdaDec state) -> do -- second condition /should/ be redundant
-          put $ state {inLambdaDec = True, isFreshScope = False}
+  lexState <- get
+  if | inLambdaDec lexState -> throwError $ "Parser Error: Already in lambda declaration - `" ++ show (TLamb:xs) ++ "`."
+     | isFreshScope lexState && not (inLambdaDec lexState) -> do -- second condition /should/ be redundant
+          put $ lexState {inLambdaDec = True, isFreshScope = False}
           parseExpr xs
-     | isJust (exprSoFar state) -> throwError $ "Parser broken: lambda after exprSoFar - `" ++ show (TLamb:xs) ++ "`, `" ++ show state ++ "`."
+     | isJust (exprSoFar lexState) -> throwError $ "Parser broken: lambda after exprSoFar - `" ++ show (TLamb:xs) ++ "`, `" ++ show lexState ++ "`."
      | otherwise -> throwError $ "Parser Error: Lambda declarations must be in fresh expression scope - `" ++ show (TLamb:xs) ++ "`."
 parseExpr (TArrow:xs) = do
-  state <- get
-  if | not (inLambdaDec state) -> throwError $ "Parser Error: Not in lambda declaration - `" ++ show (TArrow:xs) ++ "`."
-     | isFreshScope state -> throwError $ "Parser Error: No preceding lambda declaration - `" ++ show (TArrow:xs) ++ "`."
-     | isJust (exprSoFar state) -> throwError $ "Parser broken: arrow after exprSoFar - `" ++ show (TLamb:xs) ++ "`, `" ++ show state ++ "`."
+  lexState <- get
+  if | not (inLambdaDec lexState) -> throwError $ "Parser Error: Not in lambda declaration - `" ++ show (TArrow:xs) ++ "`."
+     | isFreshScope lexState -> throwError $ "Parser Error: No preceding lambda declaration - `" ++ show (TArrow:xs) ++ "`."
+     | isJust (exprSoFar lexState) -> throwError $ "Parser broken: arrow after exprSoFar - `" ++ show (TLamb:xs) ++ "`, `" ++ show lexState ++ "`."
      | otherwise -> do
-          put $ state {inLambdaDec = False, isFreshScope = True}
+          put $ lexState {inLambdaDec = False, isFreshScope = True}
           parseExpr xs
 parseExpr (TIdent n:xs) = do
-  state <- get
-  if | inLambdaDec state -> do
+  lexState <- get
+  if | inLambdaDec lexState -> do
           e <- parseExpr xs
           return $ EAbs n e
-     | isFreshScope state
-       && isNothing (exprSoFar state) -> do
-          put $ state { isFreshScope = False
+     | isFreshScope lexState
+       && isNothing (exprSoFar lexState) -> do
+          put $ lexState { isFreshScope = False
                       , exprSoFar = Just $ EVar n
                       }
           parseExpr xs
-     | not (isFreshScope state)
-       && isJust (exprSoFar state) -> do
-          put $ state {exprSoFar = Just $ EApp (fromJust $ exprSoFar state) $ EVar n}
+     | not (isFreshScope lexState)
+       && isJust (exprSoFar lexState) -> do
+          put $ lexState {exprSoFar = Just $ EApp (fromJust $ exprSoFar lexState) $ EVar n}
           parseExpr xs
-     | otherwise -> throwError $ "Parser broken: identifier not in lambda dec or body - `" ++ show (TIdent n:xs) ++ "`, `" ++ show state ++ "`."
+     | otherwise -> throwError $ "Parser broken: identifier not in lambda dec or body - `" ++ show (TIdent n:xs) ++ "`, `" ++ show lexState ++ "`."
 parseExpr (TGroup es:xs) = do
-  state <- get
-  if | inLambdaDec state -> throwError $ "Parser Error: No brackets allowed in lambda declaration - `" ++ show (TGroup es:xs) ++ "`."
-     | isNothing (exprSoFar state) -> do
+  lexState <- get
+  if | inLambdaDec lexState -> throwError $ "Parser Error: No brackets allowed in lambda declaration - `" ++ show (TGroup es:xs) ++ "`."
+     | isNothing (exprSoFar lexState) -> do
           e <- parseExpr es
-          put $ state { exprSoFar = Just e
+          put $ lexState { exprSoFar = Just e
                       , isFreshScope = False } -- should not be in lambda dec
           parseExpr xs
      | otherwise -> do
-          let prev = exprSoFar state
-          put $ state { exprSoFar = Nothing
+          let prev = exprSoFar lexState
+          put $ lexState { exprSoFar = Nothing
                       , isFreshScope = True
                       , inLambdaDec = False }
           e <- parseExpr es
-          state' <- get
-          put $ state { exprSoFar = Just $ EApp (fromJust prev) e
+          put $ lexState { exprSoFar = Just $ EApp (fromJust prev) e
                       , isFreshScope = False
                       , inLambdaDec = False }
           parseExpr xs

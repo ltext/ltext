@@ -22,8 +22,8 @@ type Var = String
 type HeaderSchema = (String, [Var], String)
 
 
-getHeader :: FilePath -> String -> Maybe HeaderSchema
-getHeader name line =
+getHeader :: String -> Maybe HeaderSchema
+getHeader line =
   let line' = words line in
   case line' of
     []                 -> Nothing
@@ -45,7 +45,7 @@ parseDocument name input = do
 
   case input' of
     [] -> return $ EText [(name, input)]
-    _  -> case getHeader name $ LT.unpack $ head input' of
+    _  -> case getHeader $ LT.unpack $ head input' of
       Nothing -> return $ EText [(name, input)]
       Just (l,vs,r) -> return $
         go (\e -> foldr EAbs e vs) (l,r) $ tail input'

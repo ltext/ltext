@@ -8,7 +8,6 @@
 module LText.Internal.Expr where
 
 import LText.Internal.Classes
-import LText.Internal.Types
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
@@ -16,7 +15,6 @@ import qualified Text.PrettyPrint as PP
 import qualified Data.Text.Lazy as LT
 
 import Data.Maybe
-import Control.Monad.State
 
 
 type Span = (FilePath, LT.Text)

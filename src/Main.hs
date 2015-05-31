@@ -37,17 +37,19 @@ data AppOpts = AppOpts
   , output :: Maybe FilePath
   , left :: Maybe String
   , right :: Maybe String
+  , showQuery :: Bool
   } deriving (Eq, Show, Generic)
 
 instance Default AppOpts where
-  def = AppOpts False Nothing Nothing Nothing
+  def = AppOpts False Nothing Nothing Nothing False
 
 instance Monoid AppOpts where
   mempty = def
-  (AppOpts t x l r) `mappend` (AppOpts t' y l' r') = AppOpts (getAny $ Any t <> Any t')
-                                                             (getLast $ Last y <> Last x)
-                                                             (getLast $ Last l <> Last l')
-                                                             (getLast $ Last r <> Last r')
+  (AppOpts t x l r s) `mappend` (AppOpts t' y l' r' s') = AppOpts (getAny $ Any t <> Any t')
+                                                                  (getLast $ Last y <> Last x)
+                                                                  (getLast $ Last l <> Last l')
+                                                                  (getLast $ Last r <> Last r')
+                                                                  (getAny $ Any s <> Any s')
 
 instance Y.ToJSON AppOpts where
   toJSON = A.genericToJSON A.defaultOptions
@@ -69,20 +71,13 @@ data Env = Env
   , outputDest :: Desitnation
   , leftDelim  :: Maybe String
   , rightDelim :: Maybe String
+  , isBeingShown :: Bool
   } deriving (Eq, Show)
 
 
 makeEnv :: AppOpts -> Env
-makeEnv (AppOpts t Nothing l r)  = Env t Stdout l r
-makeEnv (AppOpts t (Just f) l r) = Env t (File f) l r
-
--- | Command-line options - all other options, but also a way to declare the
--- location of the config file.
-data App = App
-  { expression     :: String
-  , options        :: AppOpts
-  , configLocation :: Maybe FilePath
-  } deriving (Eq, Show)
+makeEnv (AppOpts t Nothing l r s)  = Env t Stdout l r s
+makeEnv (AppOpts t (Just f) l r s) = Env t (File f) l r s
 
 -- | OptParse normal options
 appOpts :: Parser AppOpts
@@ -106,6 +101,18 @@ appOpts = AppOpts
        <> short 'r'
        <> metavar "RIGHTDELIM"
        <> help "right delimiter" )
+  <*> switch (
+          long "show"
+       <> short 's'
+       <> help "show expression for debugging" )
+
+-- | Command-line options - all other options, but also a way to declare the
+-- location of the config file.
+data App = App
+  { expression     :: String
+  , options        :: AppOpts
+  , configLocation :: Maybe FilePath
+  } deriving (Eq, Show)
 
 -- | OptParse for command-line specific options
 app :: Parser App
@@ -176,12 +183,14 @@ entry e = do
   let expr = fromError eitherExpr
 
   if isTypeQuery app
-  then liftIO $ test expr
-  else if not (litsAtTopLevel expr)
-       then error $ "Error: result has literals in sub expression - `" ++ show expr ++ "`."
-       else if outputDest app == Stdout
-            then liftIO $ LT.putStr $ render (l,r) expr
-            else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
+  then liftIO $ putStrLn $ show mainExpr ++ " :: " ++ show (generalize (Context Map.empty) exprType)
+  else if isBeingShown app
+       then liftIO $ putStrLn $ show expr ++ " :: " ++ show (generalize (Context Map.empty) exprType)
+       else if not (litsAtTopLevel expr)
+            then error $ "Error: Result has literals in sub expression - `" ++ show expr ++ "` - cannot render soundly."
+            else if outputDest app == Stdout
+                 then liftIO $ LT.putStr $ render (l,r) expr
+                 else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
   where
     fromError me = case me of
       Left err -> error err

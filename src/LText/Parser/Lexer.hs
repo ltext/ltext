@@ -53,8 +53,8 @@ tokenize s = go $ words s
       put $ TokenState Nothing
       (:) TArrow <$> go xs
     go ("\\":xs) = do
-      state <- get
-      if | following state == Just FollowsBackslash ->
+      lexState <- get
+      if | following lexState == Just FollowsBackslash ->
               throwError $ "Lexer Error: Nested Lambdas - `" ++ show s ++ "`."
          | otherwise -> do
               put $ TokenState $ Just FollowsBackslash
@@ -62,8 +62,8 @@ tokenize s = go $ words s
     go ("(":xs) = (:) TLParen <$> go xs
     go (")":xs) = (:) TRParen <$> go xs
     go (x:xs) | head x == '\\' = do
-                  state <- get
-                  if following state == Just FollowsBackslash
+                  lexState <- get
+                  if following lexState == Just FollowsBackslash
                   then throwError $ "Lexer Error: Nested Lambdas - `" ++ show s ++ "`."
                   else do put $ TokenState $ Just FollowsBackslash
                           rest <- go xs
