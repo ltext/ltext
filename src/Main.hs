@@ -25,6 +25,7 @@ import qualified Data.Text.Lazy.IO as LT
 import Data.Maybe
 import Data.Monoid
 import Data.Default
+import Control.DeepSeq (deepseq)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Control.Applicative
@@ -188,7 +189,8 @@ entry e = do
        then liftIO $ putStrLn $ show expr ++ " :: " ++ show (generalize (Context Map.empty) exprType)
        else if not (litsAtTopLevel expr)
             then error $ "Error: Result has literals in sub expression - `" ++ show expr ++ "` - cannot render soundly."
-            else if outputDest app == Stdout
+            else deepseq exprType $
+                 if outputDest app == Stdout
                  then liftIO $ LT.putStr $ render (l,r) expr
                  else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
   where

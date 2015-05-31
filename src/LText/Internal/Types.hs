@@ -12,6 +12,7 @@ import           Data.Maybe
 import qualified Data.Map                   as Map
 import qualified Data.Set                   as Set
 import qualified Text.PrettyPrint           as PP
+import Control.DeepSeq
 
 
 type TypeVar = String
@@ -20,6 +21,12 @@ data Type = TVar TypeVar
           | TFun Type Type
           | TText
   deriving (Eq, Ord)
+
+instance NFData Type where
+  rnf (TVar s) = rnf s
+  rnf (TFun t1 t2) = case rnf t1 of
+                      () -> rnf t2
+  rnf TText = ()
 
 data Prenex = Prenex [TypeVar] Type
 

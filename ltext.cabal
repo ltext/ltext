@@ -40,6 +40,7 @@ Library
                       , parsec
                       , composition
                       , composition-extra
+                      , deepseq
 
 
 Executable ltext
@@ -61,6 +62,7 @@ Executable ltext
                       , pretty
                       , composition
                       , composition-extra
+                      , deepseq
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
