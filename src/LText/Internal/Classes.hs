@@ -9,8 +9,7 @@ module LText.Internal.Classes where
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Data.Foldable
-
+import qualified Data.Foldable as Fold
 
 class SetLike (c :: * -> *) where
   empty :: c a
@@ -40,11 +39,11 @@ class ( SetLike (subst name)
   apply :: subst name domain -> a -> a
 
 
-instance ( Foldable f
+instance ( Fold.Foldable f
          , Ord name
          , Bindable vars name a
          ) => Bindable vars name (f a) where
-  fv = foldr (union . fv) empty
+  fv = Fold.foldr (union . fv) empty
 
 instance ( Functor f
          , Substitutable subst name domain a

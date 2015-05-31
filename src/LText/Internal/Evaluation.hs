@@ -11,6 +11,7 @@ import qualified Data.Map as Map
 
 import Control.Monad.Except
 import Control.Monad.State
+import Control.Applicative ((<$>))
 
 
 runEv :: ( Monad m

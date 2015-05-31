@@ -158,6 +158,7 @@ main = do
 
 -- | Entry point, post options parsing
 entry :: ( MonadIO m
+         , Functor m
          , MonadReader Env m
          ) => String -> m ()
 entry e = do
