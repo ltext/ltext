@@ -15,6 +15,7 @@ data ExprTokens = TLamb
                 | TRParen
                 | TIdent String
                 | TGroup [ExprTokens]
+                | TChar Char
   deriving (Eq)
 
 instance Show ExprTokens where
@@ -61,24 +62,38 @@ tokenize s = go $ words s
               (:) TLamb <$> go xs
     go ("(":xs) = (:) TLParen <$> go xs
     go (")":xs) = (:) TRParen <$> go xs
-    go (x:xs) | head x == '\\' = do
-                  lexState <- get
-                  if following lexState == Just FollowsBackslash
-                  then throwError $ "Lexer Error: Nested Lambdas - `" ++ show s ++ "`."
-                  else do put $ TokenState $ Just FollowsBackslash
-                          rest <- go xs
-                          return $ TLamb:TIdent (tail x):rest
-              | head x == '(' = do rest <- go xs
-                                   let lastParen f g x' = if last x' == ')'
-                                          then TIdent (f $ g x'):TRParen:rest
-                                          else TIdent (f x'):rest
-                                   return $ TLParen:if (length (tail x) > 1) && (head (tail x) == '\\')
-                                              then TLamb:lastParen (tail . tail) init x
-                                              else lastParen tail init x
-              | last x == ')' = do rest <- go xs
-                                   return $ TIdent (init x):TRParen:rest
-              | otherwise = (:) (TIdent x) <$> go xs
+    go (x:xs) = let (r, NewTokenState _ lastIdent) = runState (foldM go' [] x) $ NewTokenState Nothing "" in
+                if lastIdent == ""
+                then (r ++) <$> go xs
+                else ((r ++ [TIdent lastIdent]) ++) <$> go xs
+      where
+        go' :: MonadState NewTokenState m => [ExprTokens] -> Char -> m [ExprTokens]
+        go' acc '\\' = do
+          lexState <- get
+          if followingNew lexState == Just FollowsBackslash
+          then error $ "Lexer Error: Nested Lambdas - `" ++ show s ++ "`."
+          else do put $ lexState { followingNew = Just FollowsBackslash
+                                 , between = "" }
+                  if between lexState == ""
+                  then return $ acc ++ [TLamb]
+                  else return $ acc ++ [TIdent $ between lexState, TLamb]
+        go' acc '(' = do lexState <- get
+                         put $ lexState { followingNew = Nothing, between = ""}
+                         if between lexState == ""
+                         then return $ acc ++ [TLParen]
+                         else return $ acc ++ [TIdent $ between lexState, TLParen]
+        go' acc ')' = do lexState <- get
+                         put $ lexState { between = ""}
+                         if between lexState == ""
+                         then return $ acc ++ [TRParen]
+                         else return $ acc ++ [TIdent $ between lexState, TRParen]
+        go' acc x = do lexState <- get
+                       put lexState {between = between lexState ++ [x]}
+                       return acc
 
+data NewTokenState = NewTokenState { followingNew :: Maybe FollowingToken
+                                   , between :: String
+                                   } deriving (Eq, Show)
 
 runGroup :: ( Monad m
             , MonadError String m
