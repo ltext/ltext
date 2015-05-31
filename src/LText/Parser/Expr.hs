@@ -62,8 +62,8 @@ parseExpr (TIdent n:xs) = do
      | isFreshScope lexState
        && isNothing (exprSoFar lexState) -> do
           put $ lexState { isFreshScope = False
-                      , exprSoFar = Just $ EVar n
-                      }
+                         , exprSoFar = Just $ EVar n
+                         }
           parseExpr xs
      | not (isFreshScope lexState)
        && isJust (exprSoFar lexState) -> do
@@ -76,17 +76,17 @@ parseExpr (TGroup es:xs) = do
      | isNothing (exprSoFar lexState) -> do
           e <- parseExpr es
           put $ lexState { exprSoFar = Just e
-                      , isFreshScope = False } -- should not be in lambda dec
+                         , isFreshScope = False } -- should not be in lambda dec
           parseExpr xs
      | otherwise -> do
           let prev = exprSoFar lexState
           put $ lexState { exprSoFar = Nothing
-                      , isFreshScope = True
-                      , inLambdaDec = False }
+                         , isFreshScope = True
+                         , inLambdaDec = False }
           e <- parseExpr es
           put $ lexState { exprSoFar = Just $ EApp (fromJust prev) e
-                      , isFreshScope = False
-                      , inLambdaDec = False }
+                         , isFreshScope = False
+                         , inLambdaDec = False }
           parseExpr xs
 
 
