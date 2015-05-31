@@ -1,4 +1,4 @@
-![ltext](nonsense/ltext.png)
+![ltext](https://cdn.rawgit.com/ltext/ltext.github.io/master/logo/ltext.png)
 
 λtext
 =====
