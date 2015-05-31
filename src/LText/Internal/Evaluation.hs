@@ -67,7 +67,7 @@ alpha = go []
                          e1' <- go (n:xs) e1
                          return $ EAbs n' $ apply (Map.singleton n $ EVar n') e1'
       | otherwise = (return . EAbs n) =<< go (n:xs) e1
-    go xs (EApp e1 e2) = (return .* EApp) ==<< go xs e1 =<< go xs e2
+    go xs (EApp e1 e2) = liftM2 EApp (go xs e1) (go xs e2)
     go _  (EVar n) = return $ EVar n
     go _  (EText ts) = return $ EText ts
     go xs (EConc e1 e2) = liftM2 EConc (go xs e1) (go xs e2)
