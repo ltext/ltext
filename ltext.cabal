@@ -73,6 +73,7 @@ Test-Suite spec
   Main-Is:              Spec.hs
   Build-Depends:        base
                       , hspec
+                      , mtl
 
 Source-Repository head
   Type:                 git

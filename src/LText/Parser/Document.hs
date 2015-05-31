@@ -66,12 +66,12 @@ parseDocument name input = do
                             Right s -> case runExcept $ makeExpr s of
                               Left err -> error err
                               Right e -> e
-        process (chunk:xs) | all (not . hasDelims) chunk = EConc (EText [(name, LT.unlines chunk)]) $ process xs
+        process (chunk:xs) | all (not . hasDelims) chunk = EConc (process xs) (EText [(name, LT.unlines chunk)])
                            | otherwise = case parse (parseDelim (l,r)) name $ head chunk of
                                 Left _ -> EText [(name, LT.unlines chunk)]
                                 Right s -> case runExcept $ makeExpr s of
                                   Left err -> error err
-                                  Right e -> EConc e $ process xs
+                                  Right e -> EConc (process xs) e
 
         hasDelims :: LT.Text -> Bool
         hasDelims ln = LT.pack l `LT.isInfixOf` ln
