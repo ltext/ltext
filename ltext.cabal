@@ -58,8 +58,6 @@ Executable ltext
                       , containers
                       , transformers
                       , pretty
-                      , composition
-                      , composition-extra
                       , deepseq
 
 Test-Suite spec
