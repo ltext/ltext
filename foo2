@@ -4,7 +4,11 @@
 asdf
 asdfdf
 
-{{ g f x }}
+
+{{ (g f) x }}
 
 
 yoloylo
+
+
+

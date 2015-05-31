@@ -176,13 +176,12 @@ entry e = do
   let expr = fromError eitherExpr
 
   if isTypeQuery app
-  then liftIO $ do putStrLn "Before reduction:"
-                   test rawExpr
-                   putStrLn "After reduction:"
-                   test expr
-  else if outputDest app == Stdout
-       then liftIO $ LT.putStr $ render (l,r) expr
-       else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
+  then liftIO $ test expr
+  else if not (litsAtTopLevel expr)
+       then error $ "Error: result has literals in sub expression - `" ++ show expr ++ "`."
+       else if outputDest app == Stdout
+            then liftIO $ LT.putStr $ render (l,r) expr
+            else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
   where
     fromError me = case me of
       Left err -> error err

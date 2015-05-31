@@ -1,6 +1,7 @@
 {-# LANGUAGE
     TypeSynonymInstances
   , FlexibleInstances
+  , FlexibleContexts
   , MultiParamTypeClasses
   #-}
 
@@ -15,7 +16,7 @@ import qualified Text.PrettyPrint as PP
 import qualified Data.Text.Lazy as LT
 
 import Data.Maybe
-
+import Control.Monad.State
 
 
 type Span = (FilePath, LT.Text)
@@ -29,6 +30,21 @@ data Expr = EVar ExprVar
           | EText [Span] -- post-concatenation spans of text
           | EConc Expr Expr
   deriving (Eq, Ord)
+
+-- | Recursively checks to see if all @EText@ constructors only occur inside the
+-- /first/ @EAbs@ constructor via @EConc@ - if some are in @EApp@, for instance,
+-- then you can't successfully @render@ the expression.
+litsAtTopLevel :: Expr -> Bool
+litsAtTopLevel expr = go expr True
+  where
+    go :: Expr -> Bool -> Bool
+    go (EVar _)     _ = True
+    go (EApp e1 e2) _ =
+      go e1 False && go e2 False
+    go (EAbs _ e) isTopLevel = go e isTopLevel
+    go (EText _)  isTopLevel = isTopLevel
+    go (EConc e1 e2) isTopLevel =
+      isTopLevel && (go e1 isTopLevel && go e2 isTopLevel)
 
 instance Bindable Set.Set ExprVar Expr where
   fv (EVar n)      = Set.singleton n
@@ -47,14 +63,6 @@ instance Substitutable Map.Map ExprVar Expr Expr where
   apply s (EConc e1 e2) = EConc (apply s e1) (apply s e2)
 
 
-data AnnExpr = AAbs (String, Type) (AnnExpr, Type)
-             | AApp (AnnExpr, Type) (AnnExpr, Type)
-             | AVar (String, Type)
-             | AText [(FilePath, LT.Text)]
-             | AConc (AnnExpr, Type) (AnnExpr, Type)
-  deriving (Show, Eq)
-
-
 instance Show Expr where
    showsPrec _ x = shows (prExp x)
 
@@ -64,7 +72,7 @@ prExp (ELet x b body) = PP.text "let" PP.<+>
                         PP.text x PP.<+> PP.text "=" PP.<+>
                         prExp b PP.<+> PP.text "in" PP.$$
                         PP.nest 2 (prExp body)
-prExp (EApp e1 e2)    = PP.parens (prExp e1) PP.<+> prParenExp e2
+prExp (EApp e1 e2)    = prParenExp e1 PP.<+> prParenExp e2
 prExp (EAbs n e)      = PP.char 'λ' PP.<> PP.text n PP.<>
                         PP.char '.' PP.<+> prExp e
 prExp (EText fs)      = PP.text "#" PP.<>
