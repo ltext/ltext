@@ -36,7 +36,7 @@ parseExpr :: ( MonadState ParseState m
              ) => [ExprTokens] -> m Expr
 parseExpr [] = do
   lexState <- get
-  if | isNothing (exprSoFar lexState) -> throwError $ "Parser Error: Empty Sub-expression - `" ++ show lexState ++ "`."
+  if | isNothing (exprSoFar lexState) -> throwError $ "Parser Error: Empty expression - `" ++ show lexState ++ "`."
      | otherwise -> return $ fromJust $ exprSoFar lexState
 parseExpr (TLamb:xs) = do
   lexState <- get
@@ -96,11 +96,3 @@ makeExpr :: ( Monad m
 makeExpr s = do
   ts <- lexer s
   runParse $ parseExpr ts
-
-
-testParse :: Monad m => String -> m Expr
-testParse s = do
-  eitherExpr <- runExceptT $ makeExpr s
-  case eitherExpr of
-    Left err -> error err
-    Right expr -> return expr

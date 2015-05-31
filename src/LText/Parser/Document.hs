@@ -16,6 +16,8 @@ import Data.List (groupBy)
 import Control.Monad.State
 import Control.Monad.Except
 
+import Debug.Trace (traceShow)
+
 
 type Var = String
 
@@ -47,8 +49,8 @@ parseDocument name input = do
     [] -> return $ EText [(name, input)]
     _  -> case getHeader $ LT.unpack $ head input' of
       Nothing -> return $ EText [(name, input)]
-      Just (l,vs,r) -> return $
-        go (\e -> foldr EAbs e vs) (l,r) $ tail input'
+      Just (l,vs,r) ->
+        return $ go (\e -> foldr EAbs e vs) (l,r) $ tail input'
   where
     go :: (Expr -> Expr) -> (String, String) -> [LT.Text] -> Expr
     go header (l,r) content =
@@ -66,12 +68,12 @@ parseDocument name input = do
                             Right s -> case runExcept $ makeExpr s of
                               Left err -> error err
                               Right e -> e
-        process (chunk:xs) | all (not . hasDelims) chunk = EConc (process xs) (EText [(name, LT.unlines chunk)])
+        process (chunk:xs) | all (not . hasDelims) chunk = EConc (EText [(name, LT.unlines chunk)]) $ process xs
                            | otherwise = case parse (parseDelim (l,r)) name $ head chunk of
                                 Left _ -> EText [(name, LT.unlines chunk)]
                                 Right s -> case runExcept $ makeExpr s of
                                   Left err -> error err
-                                  Right e -> EConc (process xs) e
+                                  Right e -> EConc e $ process xs
 
         hasDelims :: LT.Text -> Bool
         hasDelims ln = LT.pack l `LT.isInfixOf` ln

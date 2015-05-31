@@ -169,6 +169,9 @@ entry e = do
                   eContentExpr <- runExceptT $ parseDocument f content
                   return $ fromError eContentExpr)
 
+  liftIO $ putStrLn "Files:"
+  liftIO $ print fileExprs
+
   app <- ask
 
   let subst :: Map.Map String Expr
@@ -177,11 +180,20 @@ entry e = do
       l = leftDelim app
       r = rightDelim app
 
+  liftIO $ putStrLn "Subst:"
+  liftIO $ print subst
+
+  liftIO $ putStrLn "Raw:"
+  liftIO $ print rawExpr
+
   eitherExprType <- runExceptT $ runTI $ typeInference (Context Map.empty) rawExpr
   let exprType = fromError eitherExprType
 
   eitherExpr <- runExceptT $ runEv $ reduce rawExpr
   let expr = fromError eitherExpr
+
+  liftIO $ putStrLn "Eval:"
+  liftIO $ print expr
 
   if isTypeQuery app
   then liftIO $ putStrLn $ show mainExpr ++ " :: " ++ show (generalize (Context Map.empty) exprType)
