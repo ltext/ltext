@@ -16,6 +16,8 @@ import Data.List (groupBy)
 import Control.Monad.State
 import Control.Monad.Except
 
+import Debug.Trace (traceShow)
+
 
 type Var = String
 
@@ -51,24 +53,25 @@ parseDocument name input = do
         go (\e -> foldr EAbs e vs) (l,r) $ tail input'
   where
     go :: (Expr -> Expr) -> (String, String) -> [LT.Text] -> Expr
-    go header (l,r) lines =
-      let lines' :: [[LT.Text]]
-          lines' = groupBy (\x y -> not (hasDelims x) && not (hasDelims y)) lines
+    go header (l,r) content =
+      let groupedContent :: [[LT.Text]]
+          groupedContent = groupBy (\x y -> not (hasDelims x) && not (hasDelims y)) content
       in
 
-      header $ process lines'
+      traceShow groupedContent $
+      header $ process groupedContent
       where
         process :: [[LT.Text]] -> Expr
         process [] = error "Error: empty list after grouping."
-        process [chunk] | length chunk > 1 = EText [(name, LT.unlines chunk)]
+        process [chunk] | all (not . hasDelims) chunk = EText [(name, LT.unlines chunk)]
                         | otherwise = case parse (parseDelim (l,r)) name $ head chunk of
                             Left _ -> EText [(name, LT.unlines chunk)]
                             Right s -> case runExcept $ makeExpr s of
                               Left err -> error err
                               Right e -> e
-        process (chunk:xs) | length chunk > 1 = EConc (EText [(name, LT.unlines chunk)]) $ process xs
+        process (chunk:xs) | all (not . hasDelims) chunk = EConc (EText [(name, LT.unlines chunk)]) $ process xs
                            | otherwise = case parse (parseDelim (l,r)) name $ head chunk of
-                                Left err -> EText [(name, LT.unlines chunk)]
+                                Left _ -> EText [(name, LT.unlines chunk)]
                                 Right s -> case runExcept $ makeExpr s of
                                   Left err -> error err
                                   Right e -> EConc e $ process xs
