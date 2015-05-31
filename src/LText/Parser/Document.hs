@@ -16,8 +16,6 @@ import Data.List (groupBy)
 import Control.Monad.State
 import Control.Monad.Except
 
-import Debug.Trace (traceShow)
-
 
 type Var = String
 
@@ -58,7 +56,6 @@ parseDocument name input = do
           groupedContent = groupBy (\x y -> not (hasDelims x) && not (hasDelims y)) content
       in
 
-      traceShow groupedContent $
       header $ process groupedContent
       where
         process :: [[LT.Text]] -> Expr
