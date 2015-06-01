@@ -47,16 +47,17 @@ Executable ltext
   GHC-Options:          -Wall -threaded
   Main-Is:              Main.hs
   Build-Depends:        base >= 4.6 && < 5
-                      , optparse-applicative
-                      , mtl
-                      , yaml
+                      , optparse-applicative >= 0.9
+                      , mtl >= 2.0.1 && <2.2 || >=2.2.0.1 && <2.3
+                      , mtl-compat >= 0.2.0.4
+                      , transformers >=0.4.1 && <0.5
+                      , containers >= 0.5
+                      , yaml >= 0.8
                       , aeson
                       , directory
                       , data-default
                       , text
                       , parsec
-                      , containers
-                      , transformers
                       , pretty
                       , deepseq
 
@@ -73,4 +74,4 @@ Test-Suite spec
 
 Source-Repository head
   Type:                 git
-  Location:             https://github.com/athanclark/ltext.git
+  Location:             https://github.com/ltext/ltext.git
