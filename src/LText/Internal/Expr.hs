@@ -14,6 +14,7 @@ import qualified Data.Map as Map
 import qualified Text.PrettyPrint as PP
 import qualified Data.Text.Lazy as LT
 
+import Data.Monoid
 import Data.Maybe
 
 
@@ -28,6 +29,7 @@ data Expr = EVar ExprVar
           | EText [Span] -- post-concatenation spans of text
           | EConc Expr Expr
   deriving (Eq, Ord)
+
 
 -- | Recursively checks to see if all @EText@ constructors only occur inside the
 -- /first/ @EAbs@ constructor via @EConc@ - if some are in @EApp@, for instance,

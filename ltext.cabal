@@ -13,6 +13,9 @@ Description:
   function application then becomes concatenation.
   .
   Please see the <https://github.com/ltext/ltext github page> for more details.
+  .
+  All credits go to Martin Grabmueller's <http://hackage.haskell.org/package/AlgorithmW AlgorithmW>
+  package for the type inference algorithm used in λtext.
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
 
@@ -32,14 +35,15 @@ Library
                         LText.Parser.Expr
                         LText.Renderer
   Build-Depends:        base >= 4.6 && < 5
-                      , mtl
-                      , transformers
-                      , containers
+                      , mtl >= 2.0.1 && <2.2 || >=2.2.0.1 && <2.3
+                      , mtl-compat >= 0.2.0.4
+                      , transformers >=0.4.1 && <0.5
+                      , containers >= 0.5
                       , pretty
                       , text
                       , parsec
                       , deepseq
-
+                      , template-haskell
 
 Executable ltext
   Default-Language:     Haskell2010
@@ -60,6 +64,7 @@ Executable ltext
                       , parsec
                       , pretty
                       , deepseq
+                      , template-haskell
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
