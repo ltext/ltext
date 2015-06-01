@@ -1,5 +1,5 @@
 Name:                   ltext
-Version:                0.0.2
+Version:                0.0.2.1
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
@@ -27,6 +27,7 @@ Library
   Exposed-Modules:      LText.Internal
                         LText.Internal.Classes
                         LText.Internal.Expr
+                        LText.Internal.Expr.TH
                         LText.Internal.Types
                         LText.Internal.Inference
                         LText.Internal.Evaluation

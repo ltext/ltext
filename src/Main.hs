@@ -206,4 +206,4 @@ entry e = do
       Left err -> error err
       Right e  -> e
 
-versionString = "0.0.2"
+versionString = "0.0.2.1"
