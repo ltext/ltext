@@ -113,6 +113,7 @@ data App = App
   { expression     :: String
   , options        :: AppOpts
   , configLocation :: Maybe FilePath
+  , version        :: Bool
   } deriving (Eq, Show)
 
 -- | OptParse for command-line specific options
@@ -125,6 +126,10 @@ app = App
       <> short 'c'
       <> metavar "CONFIG"
       <> help "location of config file" )
+  <*> switch (
+         long "version"
+      <> short 'v'
+      <> help "print the version number" )
 
 main :: IO ()
 main = do
@@ -135,26 +140,28 @@ main = do
        <> header "λtext - higher-order file applicator" )
 
   (runtimeOpts :: App) <- execParser opts
+  if version runtimeOpts
+  then liftIO $ putStrLn $ "Version: " ++ versionString
+  else do
+    let yamlConfigPath = fromMaybe "./.ltext/config.yaml" $
+                           configLocation runtimeOpts
 
-  let yamlConfigPath = fromMaybe "./.ltext/config.yaml" $
-                         configLocation runtimeOpts
+    yamlConfigExist   <- doesFileExist yamlConfigPath
+    yamlConfigContent <- if yamlConfigExist
+      then readFile yamlConfigPath
+      else return ""
 
-  yamlConfigExist   <- doesFileExist yamlConfigPath
-  yamlConfigContent <- if yamlConfigExist
-    then readFile yamlConfigPath
-    else return ""
+    (eYamlConfig :: Either Y.ParseException AppOpts) <-
+      if yamlConfigExist && not (null yamlConfigContent)
+      then Y.decodeFileEither yamlConfigPath
+      else return $ Right def
 
-  (eYamlConfig :: Either Y.ParseException AppOpts) <-
-    if yamlConfigExist && not (null yamlConfigContent)
-    then Y.decodeFileEither yamlConfigPath
-    else return $ Right def
+    (yamlConfig :: AppOpts) <- either (\err -> do putStrLn $ Y.prettyPrintParseException err
+                                                  return def)
+                                      return eYamlConfig
 
-  (yamlConfig :: AppOpts) <- either (\err -> do putStrLn $ Y.prettyPrintParseException err
-                                                return def)
-                                    return eYamlConfig
-
-  runReaderT (entry $ expression runtimeOpts) $
-    makeEnv $ yamlConfig <> options runtimeOpts
+    runReaderT (entry $ expression runtimeOpts) $
+      makeEnv $ yamlConfig <> options runtimeOpts
 
 -- | Entry point, post options parsing
 entry :: ( MonadIO m
@@ -198,3 +205,5 @@ entry e = do
     fromError me = case me of
       Left err -> error err
       Right e  -> e
+
+versionString = "0.0.2"
