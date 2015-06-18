@@ -10,7 +10,7 @@
 # Overview
 
 λtext turns text files into higher-order functions, featuring a Hindley-Milner /
-prenex polymorphic type system.
+prenex polymorphic type system. See our [github.io page](http://ltext.github.io/).
 
 ## Installation
 
