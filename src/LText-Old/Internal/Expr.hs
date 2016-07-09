@@ -22,12 +22,13 @@ type Span = (FilePath, LT.Text)
 
 type ExprVar = String
 
-data Expr = EVar ExprVar
-          | EApp Expr Expr
-          | EAbs ExprVar Expr
-          | ELet ExprVar Expr Expr
-          | EText [Span] -- post-concatenation spans of text
-          | EConc Expr Expr
+-- | Term expressions
+data Expr = EVar ExprVar -- ^ Variable reference
+          | EApp Expr Expr -- ^ Function application
+          | EAbs ExprVar Expr -- ^ Lambda abstraction
+          | ELet ExprVar Expr Expr -- ^ Let statements
+          | EText [Span] -- ^ Post-concatenation spans of text
+          | EConc Expr Expr -- ^ @(++)@-style concatenation
   deriving (Eq, Ord)
 
 

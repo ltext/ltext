@@ -17,9 +17,10 @@ import Control.DeepSeq
 
 type TypeVar = String
 
-data Type = TVar TypeVar
-          | TFun Type Type
-          | TText
+-- | Type signatures
+data Type = TVar TypeVar -- ^ Type variable
+          | TFun Type Type -- ^ Arrow @(->)@ type
+          | TText -- ^ Monomorphic @Text@ type
   deriving (Eq, Ord)
 
 instance NFData Type where
@@ -28,6 +29,7 @@ instance NFData Type where
                       () -> rnf t2
   rnf TText = ()
 
+-- | Quantified Type Variables
 data Prenex = Prenex [TypeVar] Type
 
 type Subst name domain = Map.Map name domain
