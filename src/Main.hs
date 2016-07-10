@@ -15,12 +15,12 @@ import Application.Types
 import LText.Expr
 
 import Options.Applicative
-import Data.Maybe
 import Data.Monoid
 import System.IO
 import System.Exit
-import Text.Earley
 import qualified Data.HashSet as HS
+import qualified Data.Text    as T
+import Control.Monad.Catch
 
 
 
@@ -57,17 +57,17 @@ opts =
         <> short 'r'
         <> metavar "FILE"
         <> help "Treat these files as plaintext without an arity header"
-  in  Opts <$> expressionOpt <*> versionOpt <*> typeOpt <*> verboseOpt <*> rawOpt
+  in  Opts <$> expressionOpt
+           <*> versionOpt
+           <*> typeOpt
+           <*> verboseOpt
+           <*> rawOpt
 
 
 optsToEnv :: Opts -> IO Env
-optsToEnv (Opts ex _ t _ r) =
-  let (xs,re) = fullParses (parser expr) ex
-  in case (xs, unconsumed re) of
-       (x:_, "") -> pure $ Env x t (HS.fromList r)
-       _ -> do
-         hPutStrLn stderr $ "[Error] Failed to parse top-level expression: " ++ show re
-         exitFailure
+optsToEnv (Opts ex _ t _ r) = do
+  e <- runParse $ T.pack ex
+  pure $ Env e t (HS.fromList r)
 
 
 main :: IO ()
@@ -75,7 +75,9 @@ main = do
   let cli :: ParserInfo Opts
       cli = info (helper <*> opts) $
           fullDesc
-       <> progDesc "Evaluate EXPRESSION and send to stdout"
+       <> progDesc "Evaluate EXPRESSION and send the substitution to stdout.\
+                  \ Notice how the filenames used CAN'T use spaces ` ` due to\
+                  \ its representation as function application. It's also ghotty :x"
        <> header "λtext - higher-order file applicator"
 
   os <- execParser cli

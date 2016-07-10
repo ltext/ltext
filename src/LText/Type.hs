@@ -21,7 +21,7 @@ import GHC.Generics
 data Type
   = Text
   | TVar String
-  | Arrow Type Type
+  | TArrow Type Type
   deriving (Show, Eq)
 
 
@@ -36,15 +36,15 @@ unify expectation given =
           case given of
             Text      -> pure given
             TVar _    -> pure expectation
-            Arrow _ _ -> throwM typeError
-        Arrow e1 e2 ->
+            TArrow _ _ -> throwM typeError
+        TArrow e1 e2 ->
           case given of
             Text   -> throwM typeError
             TVar _ -> pure expectation
-            Arrow e1' e2' -> do
+            TArrow e1' e2' -> do
               e1Hat <- unify e1 e1'
               e2Hat <- unify e2 e2'
-              pure $ Arrow e1Hat e2Hat
+              pure $ TArrow e1Hat e2Hat
 
 data Context = Context
   { contextMap   :: HashMap String Type
@@ -101,9 +101,9 @@ typeInfer atLeast e =
         Nothing -> throwM $ UnboundVariable x
         Just s  -> unify atLeast s
     Abs x e' -> do
-      here <- Arrow <$> freshTVar <*> freshTVar
-      -- partial, but still guaranteed to be Arrow
-      (Arrow xS atLeast') <- unify atLeast here
+      here <- TArrow <$> freshTVar <*> freshTVar
+      -- partial, but still guaranteed to be TArrow
+      (TArrow xS atLeast') <- unify atLeast here
 
       ctx <- contextMap <$> get
       let mAlpha = HM.lookup x ctx -- alpha equivalence
@@ -125,14 +125,14 @@ typeInfer atLeast e =
                  Nothing -> throwM $ TypecheckerInconsistent x
                  Just t  -> pure t
 
-      pure $ Arrow xType e'Type
+      pure $ TArrow xType e'Type
     App e1 e2 -> do
       argFresh  <- freshTVar
       argActual <- typeInfer argFresh e2
 
-      let funAtLeast = Arrow argActual atLeast
+      let funAtLeast = TArrow argActual atLeast
 
       -- Partial but... should be guaranteed?
-      (Arrow _ resultType) <- typeInfer funAtLeast e1
+      (TArrow _ resultType) <- typeInfer funAtLeast e1
 
       pure resultType
