@@ -44,8 +44,14 @@ data Expr
 instance Arbitrary Expr where
   arbitrary = oneof [abs, app, var]
     where
+      isFilename c = c /= '\\'
+                  && c /= '('
+                  && c /= ')'
+                  && (isAlphaNum c
+                  || isSymbol c
+                  || isPunctuation c)
       abs = do
-        (Between x) <- arbitrary `suchThat` (\(Between x') -> all isAlphaNum x')
+        (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
                        :: Gen (Between 1 5 [] Char)
         e <- arbitrary
         pure $ Abs x e
@@ -54,7 +60,7 @@ instance Arbitrary Expr where
         e2 <- arbitrary
         pure $ App e1 e2
       var = do
-        (Between x) <- arbitrary `suchThat` (\(Between x') -> all isAlphaNum x')
+        (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
                        :: Gen (Between 1 5 [] Char)
         pure $ Var x
 
