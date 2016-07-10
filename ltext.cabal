@@ -1,5 +1,5 @@
 Name:                   ltext
-Version:                0.0.2.1
+Version:                1.0.0
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
@@ -24,59 +24,77 @@ Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
-  Exposed-Modules:      LText.Internal
-                        LText.Internal.Classes
-                        LText.Internal.Expr
-                        LText.Internal.Expr.TH
-                        LText.Internal.Types
-                        LText.Internal.Inference
-                        LText.Internal.Evaluation
-                        LText.Parser.Document
-                        LText.Parser.Lexer
-                        LText.Parser.Expr
-                        LText.Renderer
-  Build-Depends:        base >= 4.6 && < 5
-                      , mtl >= 2.0.1 && <2.2 || >=2.2.0.1 && <2.3
-                      , mtl-compat >= 0.2.0.4
-                      , transformers >=0.4.1 && <0.5
-                      , containers >= 0.5
+  Exposed-Modules:     Application.Types
+                       LText.Expr
+                       LText.Type
+  Build-Depends:        base >= 4.8 && < 5
+                      , mtl
+                      , attoparsec
+                      , transformers
+                      , unordered-containers
+                      , exceptions
+                      , HFuse
                       , pretty
+                      , parsec
                       , text
                       , parsec
                       , deepseq
                       , template-haskell
+                      , QuickCheck
+                      , quickcheck-combinators
 
 Executable ltext
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall -threaded
   Main-Is:              Main.hs
-  Build-Depends:        base >= 4.6 && < 5
-                      , optparse-applicative >= 0.9
-                      , mtl >= 2.0.1 && <2.2 || >=2.2.0.1 && <2.3
-                      , mtl-compat >= 0.2.0.4
-                      , transformers >=0.4.1 && <0.5
-                      , containers >= 0.5
-                      , yaml >= 0.8
-                      , aeson
-                      , directory
+  Other-Modules:       Application.Types
+                       LText.Expr
+                       LText.Type
+  Build-Depends:        base >= 4.8 && < 5
+                      , optparse-applicative
+                      , attoparsec
+                      , mtl
+                      , exceptions
+                      , transformers
+                      , unordered-containers
                       , data-default
                       , text
                       , parsec
+                      , attoparsec
                       , pretty
                       , deepseq
                       , template-haskell
+                      , QuickCheck
+                      , quickcheck-combinators
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
   Default-Language:     Haskell2010
-  Hs-Source-Dirs:       src
-                      , test
+  Hs-Source-Dirs:       test
   Ghc-Options:          -Wall
-  Main-Is:              Spec.hs
+  Main-Is:              Main.hs
   Build-Depends:        base
+                      , ltext
                       , hspec
                       , mtl
+                      , optparse-applicative
+                      , attoparsec
+                      , mtl
+                      , exceptions
+                      , transformers
+                      , unordered-containers
+                      , data-default
+                      , text
+                      , parsec
+                      , attoparsec
+                      , pretty
+                      , deepseq
+                      , template-haskell
+                      , QuickCheck
+                      , quickcheck-combinators
+                      , tasty
+                      , tasty-quickcheck
 
 Source-Repository head
   Type:                 git

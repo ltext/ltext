@@ -13,4 +13,4 @@ cabal.sandbox.config
 *.swo
 *.swn
 
-.ltext/
+.stack-work/

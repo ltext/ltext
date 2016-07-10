@@ -1,0 +1,4 @@
+- __ Escaping__:
+    - right now, the system forbids `\`, `(` or `)` in filenames, which is hard to
+      work with. Although I hate it with passion, maybe escaping might be an option.
+      Ugh :\
