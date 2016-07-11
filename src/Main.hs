@@ -9,13 +9,17 @@ module Main where
 import Application.Types
 import LText.Expr
 import LText.Type
+import LText.Document
+import LText.Eval
 
 import Options.Applicative
 import Data.Monoid
 import System.IO
 import System.Exit
-import qualified Data.HashSet as HS
-import qualified Data.Text    as T
+import qualified Data.HashSet      as HS
+import qualified Data.Text         as T
+import qualified Data.Text.Lazy    as LT
+import qualified Data.Text.Lazy.IO as LT
 import Control.Monad.Reader
 import Control.Monad.Catch
 import Control.Monad.IO.Class
@@ -32,6 +36,8 @@ data Opts = Opts
   , type'      :: Bool
   , verbose    :: Bool
   , raw        :: [FilePath]
+  , leftDelim  :: Maybe String
+  , rightDelim :: Maybe String
   } deriving (Eq, Show)
 
 
@@ -55,17 +61,27 @@ opts =
         <> short 'r'
         <> metavar "FILE"
         <> help "Treat these files as plaintext without an arity header"
+      leftOpt = optional . strOption $
+           long "left"
+        <> metavar "LEFT"
+        <> help "The left delimiter to use for rendering partially applied files"
+      rightOpt = optional . strOption $
+           long "right"
+        <> metavar "RIGHT"
+        <> help "The right delimiter to use for rendering partially applied files"
   in  Opts <$> expressionOpt
            <*> versionOpt
            <*> typeOpt
            <*> verboseOpt
            <*> rawOpt
+           <*> leftOpt
+           <*> rightOpt
 
 
 optsToEnv :: Opts -> IO Env
-optsToEnv (Opts ex _ t _ r) = do
+optsToEnv (Opts ex _ t _ r ld rd) = do
   e <- runParse $ T.pack ex
-  pure $ Env e t (HS.fromList r)
+  pure $ Env e t (HS.fromList r) ((,) <$> ld <*> rd)
 
 
 main :: IO ()
@@ -98,7 +114,16 @@ entry = do
     putStrLn $ ppType t
     exitSuccess
   else do
-    undefined
+    let e = t `seq` evaluate (topLevelExpr env)
+    d   <- toDocument e
+    let ds = case delims env of
+               Nothing -> Nothing
+               Just (ld,rd) -> Just (LT.pack ld, LT.pack rd)
+    txt <- printDocument ds d
+    liftIO $ do
+      LT.putStrLn txt
+      exitSuccess
+
 
 --   eitherMainExpr <- runExceptT $ makeExpr e
 --   let mainExpr = fromError eitherMainExpr

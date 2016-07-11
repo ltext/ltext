@@ -70,7 +70,7 @@ data TypeEnv = TypeEnv
   } deriving (Show, Eq)
 
 toTypeEnv :: Env -> TypeEnv
-toTypeEnv (Env _ _ r) = TypeEnv r
+toTypeEnv (Env _ _ r _) = TypeEnv r
 
 
 type MonadTypecheck m =

@@ -1,0 +1,31 @@
+module LText.Eval where
+
+import LText.Expr
+
+import Data.Text.Lazy as LT (unlines)
+
+
+evaluate :: Expr -> Expr
+evaluate e =
+  case e of
+    Var n    -> Var n
+    Abs n e' -> Abs n (evaluate e')
+    Lit t    -> Lit t
+    Concat e1 e2 ->
+      case (evaluate e1, evaluate e2) of
+        (Lit t1, Lit t2) -> Lit $ LT.unlines [t1,t2]
+        (e1'   , e2'   ) -> Concat e1' e2'
+    App (Abs n e1) e2 -> substitute n e2 e1
+    App _ _ -> error "Typechecker Inconsistent!"
+
+
+substitute :: String -> Expr -> Expr -> Expr
+substitute n x e =
+  case e of
+    Lit t                -> Lit t
+    Concat e1 e2         -> Concat (substitute n x e1) (substitute n x e2)
+    Var n'   | n == n'   -> x
+             | otherwise -> Var n'
+    App e1 e2            -> App (substitute n x e1) (substitute n x e2)
+    Abs n' e | n == n'   -> Abs n' e
+             | otherwise -> Abs n' $ substitute n x e

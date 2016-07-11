@@ -1,6 +1,7 @@
 {-# LANGUAGE
     FlexibleContexts
   , OverloadedStrings
+  , DeriveGeneric
   #-}
 
 module LText.Document where
@@ -11,8 +12,12 @@ import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy    as LT
 import qualified Data.Text.Lazy.IO as LT
 
+import Data.Monoid
 import Control.Monad
+import Control.Monad.Catch
 import Control.Monad.IO.Class
+
+import GHC.Generics
 
 
 data Document = Document
@@ -66,6 +71,29 @@ parseDocument ts' =
           (l, last hs, take (length hs - 1) hs)
 
 
+printDocument :: MonadPrettyPrint m => Maybe (Text, Text) -> Document -> m Text
+printDocument mds (Document head body) = do
+  bs <- mapM go body
+  case head of
+    [] -> pure $ LT.unlines bs
+    hs ->
+      case mds of
+        Nothing -> throwM NoExplicitDelimiters
+        Just (ld,rd) ->
+          pure . LT.unlines $
+              LT.unwords (ld : (head ++ [rd]))
+            : bs
+  where
+    go :: MonadPrettyPrint m => DocumentBody -> m Text
+    go (RawText t)    = pure t
+    go (Expression e) =
+      case mds of
+        Nothing -> throwM NoExplicitDelimiters
+        Just (ld,rd) -> do
+          e' <- LT.pack <$> ppExpr e
+          pure $ ld <> " " <> e' <> " " <> rd
+
+
 fromDocument :: Document -> Expr
 fromDocument (Document head body) =
   foldr (Abs . LT.unpack) (go body) head
@@ -73,6 +101,73 @@ fromDocument (Document head body) =
     go []                = Lit ""
     go (RawText t:ts)    = Concat (Lit t) (go ts)
     go (Expression e:ts) = Concat e (go ts)
+
+
+data PrintError
+  = ConcatExprText
+  | NoExplicitDelimiters
+  deriving (Show, Eq, Generic)
+
+instance Exception PrintError
+
+
+toDocument :: MonadThrow m => Expr -> m Document
+toDocument e =
+  if not $ isPrintable e
+  then throwM ConcatExprText
+  else case getInitArity e of
+    (hs,e') -> pure . Document hs $ getBody e'
+  where
+    getBody :: Expr -> [DocumentBody]
+    getBody e =
+      case e of
+        Lit t        -> [RawText t]
+        Concat e1 e2 -> getBody e1 ++ getBody e2
+        e'           -> [Expression e']
+
+    getInitArity :: Expr -> ([Text], Expr)
+    getInitArity e =
+      case e of
+        Abs n e' -> let (hs          , e'') = getInitArity e'
+                    in  (LT.pack n:hs, e'')
+        e'       -> ([], e')
+
+    isPrintable :: Expr -> Bool
+    isPrintable = not . hasConcatAbsLit
+    hasConcatAbsLit :: Expr -> Bool
+    hasConcatAbsLit = go Nothing
+      where
+        go :: Maybe PrintabilityMode -> Expr -> Bool
+        go Nothing e =
+          case e of
+            Var _        -> False
+            Lit _        -> False
+            Abs _ e'     -> go Nothing e'
+            App e1 e2    -> go Nothing e1 || go Nothing e2
+            Concat e1 e2 -> go (Just InsideConcat) e1
+                         || go (Just InsideConcat) e2
+        go (Just InsideConcat) e =
+          case e of
+            Lit _        -> False
+            Var _        -> False
+            Abs _ e'     -> go (Just InsideExpr) e'
+            App e1 e2    -> go (Just InsideExpr) e1
+                         || go (Just InsideExpr) e2
+            Concat e1 e2 -> go (Just InsideConcat) e1
+                         || go (Just InsideConcat) e2
+        go (Just InsideExpr) e =
+          case e of
+            Lit _        -> True
+            Concat _ _   -> True
+            Var _        -> False
+            Abs _ e'     -> go (Just InsideExpr) e'
+            App e1 e2    -> go (Just InsideExpr) e1
+                         || go (Just InsideExpr) e2
+
+data PrintabilityMode
+  = InsideConcat
+  | InsideExpr
+
 
 
 fetchDocument :: MonadParse m => FilePath -> m Expr
