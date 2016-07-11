@@ -24,49 +24,42 @@ Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
-  Exposed-Modules:     Application.Types
-                       LText.Expr
-                       LText.Type
+  Exposed-Modules:      Application.Types
+                        LText.Expr
+                        LText.Type
   Build-Depends:        base >= 4.8 && < 5
-                      , mtl
                       , attoparsec
-                      , transformers
-                      , unordered-containers
+                      , directory
                       , exceptions
                       , HFuse
+                      , mtl
                       , pretty
-                      , parsec
                       , text
-                      , parsec
-                      , deepseq
-                      , template-haskell
+                      , transformers
                       , QuickCheck
                       , quickcheck-combinators
+                      , unordered-containers
 
 Executable ltext
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall -threaded
   Main-Is:              Main.hs
-  Other-Modules:       Application.Types
-                       LText.Expr
-                       LText.Type
+  Other-Modules:        Application.Types
+                        LText.Expr
+                        LText.Type
   Build-Depends:        base >= 4.8 && < 5
-                      , optparse-applicative
                       , attoparsec
-                      , mtl
+                      , directory
                       , exceptions
-                      , transformers
-                      , unordered-containers
-                      , data-default
-                      , text
-                      , parsec
-                      , attoparsec
+                      , mtl
+                      , optparse-applicative
                       , pretty
-                      , deepseq
-                      , template-haskell
+                      , transformers
+                      , text
                       , QuickCheck
                       , quickcheck-combinators
+                      , unordered-containers
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
@@ -76,21 +69,6 @@ Test-Suite spec
   Main-Is:              Main.hs
   Build-Depends:        base
                       , ltext
-                      , hspec
-                      , mtl
-                      , optparse-applicative
-                      , attoparsec
-                      , mtl
-                      , exceptions
-                      , transformers
-                      , unordered-containers
-                      , data-default
-                      , text
-                      , parsec
-                      , attoparsec
-                      , pretty
-                      , deepseq
-                      , template-haskell
                       , QuickCheck
                       , quickcheck-combinators
                       , tasty

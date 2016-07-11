@@ -6,13 +6,9 @@
 
 module Main where
 
--- import LText.Parser.Document
--- import LText.Parser.Expr
--- import LText.Renderer
--- import LText.Internal
-
 import Application.Types
 import LText.Expr
+import LText.Type
 
 import Options.Applicative
 import Data.Monoid
@@ -20,7 +16,9 @@ import System.IO
 import System.Exit
 import qualified Data.HashSet as HS
 import qualified Data.Text    as T
+import Control.Monad.Reader
 import Control.Monad.Catch
+import Control.Monad.IO.Class
 
 
 
@@ -92,7 +90,11 @@ main = do
 entry :: ( MonadApp m
          ) => m ()
 entry = do
-  pure ()
+  env <- ask
+  let typeEnv = toTypeEnv env
+  (_,t) <- liftIO . runTypeCheckM typeEnv . typeInfer $ topLevelExpr env
+  liftIO $ print t
+
 --   eitherMainExpr <- runExceptT $ makeExpr e
 --   let mainExpr = fromError eitherMainExpr
 -- 

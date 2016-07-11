@@ -19,11 +19,6 @@ data Env = Env
   , rawTerms     :: HashSet FilePath
   } deriving (Eq, Show)
 
-isRaw :: MonadApp m => FilePath -> m Bool
-isRaw file = do
-  raws <- rawTerms <$> ask
-  pure $ HS.member file raws
-
 
 type MonadApp m =
   ( MonadIO m
