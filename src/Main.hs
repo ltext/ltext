@@ -93,7 +93,7 @@ entry = do
   env <- ask
   let typeEnv = toTypeEnv env
   (_,t) <- liftIO . runTypeCheckM typeEnv . typeInfer $ topLevelExpr env
-  liftIO $ print t
+  liftIO . putStrLn $ ppType t
 
 --   eitherMainExpr <- runExceptT $ makeExpr e
 --   let mainExpr = fromError eitherMainExpr

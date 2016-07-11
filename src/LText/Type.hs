@@ -15,6 +15,7 @@ import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS
 import Data.Maybe (fromMaybe)
 import Data.Monoid
+import Text.PrettyPrint hiding ((<>))
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Catch
@@ -35,6 +36,19 @@ data Type
   | TVar String
   | TArrow Type Type
   deriving (Show, Eq)
+
+ppType :: Type -> String
+ppType = render . go
+  where
+    go t =
+      case t of
+        Text   -> text "Text"
+        TVar n -> text n
+        TArrow t1 t2 ->
+          let t1Hat = case t1 of
+                TArrow _ _ -> parens $ go t1
+                _          -> go t1
+          in  t1Hat <+> text "->" <+> go t2
 
 
 newtype Subst = Subst
