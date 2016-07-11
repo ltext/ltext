@@ -13,16 +13,14 @@ import LText.Document
 import LText.Eval
 
 import Options.Applicative
-import Data.Monoid
 import System.IO
 import System.Exit
-import qualified Data.HashSet      as HS
-import qualified Data.Text         as T
-import qualified Data.Text.Lazy    as LT
-import qualified Data.Text.Lazy.IO as LT
+import qualified Data.HashSet        as HS
+import qualified Data.Text           as T
+import qualified Data.Text.Lazy      as LT
+import qualified Data.Text.Lazy.IO   as LT
 import Control.Monad.Reader
 import Control.Monad.Catch
-import Control.Monad.IO.Class
 
 
 
@@ -114,8 +112,8 @@ entry = do
     putStrLn $ ppType t
     exitSuccess
   else do
-    let e = t `seq` evaluate (topLevelExpr env)
-    d   <- toDocument e
+    e <- resolveTopLevelExpr $ topLevelExpr env
+    d <- toDocument $ evaluate e
     let ds = case delims env of
                Nothing -> Nothing
                Just (ld,rd) -> Just (LT.pack ld, LT.pack rd)
@@ -123,6 +121,20 @@ entry = do
     liftIO $ do
       LT.putStrLn txt
       exitSuccess
+
+
+-- | Translates free variables into filenames, and fetches them
+resolveTopLevelExpr :: MonadApp m => Expr -> m Expr
+resolveTopLevelExpr e =
+  foldM go e $ freeVars e
+  where
+    go e' f = do
+      isRaw <- HS.member f . rawTerms <$> ask
+      d     <- liftIO $ if isRaw
+                        then rawDocument f
+                        else fetchDocument f
+      pure $ substitute f d e'
+
 
 
 --   eitherMainExpr <- runExceptT $ makeExpr e

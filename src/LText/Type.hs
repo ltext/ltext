@@ -229,7 +229,7 @@ typeInfer mode e =
                 if isRaw
                 then pure (mempty, Text)
                 else do
-                  d <- liftIO . runParserT $ fetchDocument x
+                  d <- liftIO $ fetchDocument x
                   typeInfer DocLevel d
               else throwM $ UnboundVariable x
             DocLevel -> throwM $ UnboundVariable x

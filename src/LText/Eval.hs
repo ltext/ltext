@@ -1,8 +1,21 @@
+{-# LANGUAGE
+    FlexibleContexts
+  #-}
+
 module LText.Eval where
 
 import LText.Expr
+import LText.Document
 
-import Data.Text.Lazy as LT (unlines)
+import Data.Text.Lazy                as LT (unlines)
+import           Data.HashSet        (HashSet)
+import qualified Data.HashSet        as HS
+import           Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
+import Data.Monoid
+import Control.Monad
+import Control.Monad.Catch
+import Control.Monad.IO.Class
 
 
 evaluate :: Expr -> Expr
@@ -29,3 +42,14 @@ substitute n x e =
     App e1 e2            -> App (substitute n x e1) (substitute n x e2)
     Abs n' e | n == n'   -> Abs n' e
              | otherwise -> Abs n' $ substitute n x e
+
+
+freeVars :: Expr -> HashSet String
+freeVars e =
+  case e of
+    Abs n e'     -> HS.delete n $ freeVars e'
+    App e1 e2    -> freeVars e1 <> freeVars e2
+    Var n        -> HS.singleton n
+    Lit _        -> HS.empty
+    Concat e1 e2 -> freeVars e1 <> freeVars e2
+

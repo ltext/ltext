@@ -13,6 +13,7 @@ import qualified Data.Text.Lazy    as LT
 import qualified Data.Text.Lazy.IO as LT
 
 import Data.Monoid
+import Data.List.Extra (unsnoc)
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.IO.Class
@@ -32,56 +33,72 @@ data DocumentBody
 
 
 parseDocument :: MonadParse m => LT.Text -> m Document
-parseDocument ts' =
-  case LT.lines ts' of
+parseDocument ts =
+  case LT.lines ts of
     [] -> pure $ Document [] []
-    (head:body) ->
-      let (l,r,hs) = parseHead head
+    (head':body) ->
+      let (l,r,hs) = parseHead head'
+
           go :: MonadParse m => [DocumentBody] -> Text -> m [DocumentBody]
-          go bs b =
+          go acc b =
             case findExpression l r b of
-              Just ts -> do e <- liftIO . runParse $ LT.toStrict ts
-                            pure $ bs ++ [Expression e]
+              Just ts' -> do
+                e <- liftIO . runParse $ LT.toStrict ts'
+                pure $ acc ++ [Expression e]
+
               Nothing ->
-                case (take (length bs - 1) bs, drop (length bs - 1) bs) of
-                  (bs',[RawText b']) -> pure $ bs' ++ [RawText $ LT.unlines [b',b]]
-                  _                  -> pure $ bs  ++ [RawText b]
-      in  Document hs <$> foldM go [] body
+                case unsnoc acc of
+                  Just (acc',RawText b') ->
+                    pure $ acc' ++ [ RawText $ if b == ""
+                                               then b'
+                                               else LT.unlines [b',b]
+                                   ]
+                  Just _ ->
+                    if b == ""
+                    then pure acc
+                    else pure $ acc ++ [RawText b]
+                  Nothing ->
+                    pure [RawText b]
+
+      in if head' == ""
+      then pure $ Document [] [RawText ts]
+      else Document hs <$> foldM go [] body
   where
     findExpression :: Text -> Text -> Text -> Maybe Text
-    findExpression l r ts =
-      case LT.words ts of
+    findExpression l r ts' =
+      case LT.words ts' of
         []    -> Nothing
         [_]   -> Nothing
         [_,_] -> Nothing
-        (l':ts')
-          | l' == l ->
-            let (ts'',r') = (take (length ts' - 1) ts', last ts')
-            in if r' == r
-            then Just $ LT.unwords ts''
-            else Nothing
-          | otherwise -> Nothing
+        (l':ts'')
+          | l' /= l -> Nothing
+          | otherwise -> do
+            (ts''',r') <- unsnoc ts''
+            guard $ r' == r
+            Just $ LT.unwords ts'''
+
     parseHead :: LT.Text -> (Text, Text, [Text])
     parseHead h =
       case LT.words h of
         []    -> ("","",[])
         [_]   -> ("","",[])
         [l,r] -> (l, r, [])
-        (l:hs) ->
-          (l, last hs, take (length hs - 1) hs)
+        (l:hs) -> case unsnoc hs of
+          Nothing      -> error "impossible state"
+          Just (hs',r) -> (l, r, hs')
 
 
 printDocument :: MonadPrettyPrint m => Maybe (Text, Text) -> Document -> m Text
-printDocument mds (Document head body) = do
+printDocument mds (Document head' body) = do
   bs <- mapM go body
-  case head of
+  case head' of
     [] -> pure $ LT.unlines bs
-    hs ->
+    _ ->
       case mds of
         Nothing -> throwM NoExplicitDelimiters
         Just (ld,rd) ->
           pure . LT.unlines $
-              LT.unwords (ld : (head ++ [rd]))
+              LT.unwords (ld : (head' ++ [rd]))
             : bs
   where
     go :: MonadPrettyPrint m => DocumentBody -> m Text
@@ -95,12 +112,16 @@ printDocument mds (Document head body) = do
 
 
 fromDocument :: Document -> Expr
-fromDocument (Document head body) =
-  foldr (Abs . LT.unpack) (go body) head
+fromDocument (Document head' body) =
+  foldr (Abs . LT.unpack) (go body) head'
   where
-    go []                = Lit ""
+    -- WARNING: partial; however, every text file is guaranteed to have at least
+    -- one line.
+    go (RawText t:[])    = Lit t
     go (RawText t:ts)    = Concat (Lit t) (go ts)
+    go (Expression e:[]) = e
     go (Expression e:ts) = Concat e (go ts)
+    go _                 = error "Text file without any text"
 
 
 data PrintError
@@ -119,50 +140,51 @@ toDocument e =
     (hs,e') -> pure . Document hs $ getBody e'
   where
     getBody :: Expr -> [DocumentBody]
-    getBody e =
-      case e of
+    getBody e' =
+      case e' of
         Lit t        -> [RawText t]
         Concat e1 e2 -> getBody e1 ++ getBody e2
-        e'           -> [Expression e']
+        e''          -> [Expression e'']
 
     getInitArity :: Expr -> ([Text], Expr)
-    getInitArity e =
-      case e of
-        Abs n e' -> let (hs          , e'') = getInitArity e'
-                    in  (LT.pack n:hs, e'')
-        e'       -> ([], e')
+    getInitArity e' =
+      case e' of
+        Abs n e'' -> let (hs          , e''') = getInitArity e''
+                     in  (LT.pack n:hs, e''')
+        e''       -> ([], e'')
 
     isPrintable :: Expr -> Bool
     isPrintable = not . hasConcatAbsLit
-    hasConcatAbsLit :: Expr -> Bool
-    hasConcatAbsLit = go Nothing
-      where
-        go :: Maybe PrintabilityMode -> Expr -> Bool
-        go Nothing e =
-          case e of
-            Var _        -> False
-            Lit _        -> False
-            Abs _ e'     -> go Nothing e'
-            App e1 e2    -> go Nothing e1 || go Nothing e2
-            Concat e1 e2 -> go (Just InsideConcat) e1
-                         || go (Just InsideConcat) e2
-        go (Just InsideConcat) e =
-          case e of
-            Lit _        -> False
-            Var _        -> False
-            Abs _ e'     -> go (Just InsideExpr) e'
-            App e1 e2    -> go (Just InsideExpr) e1
-                         || go (Just InsideExpr) e2
-            Concat e1 e2 -> go (Just InsideConcat) e1
-                         || go (Just InsideConcat) e2
-        go (Just InsideExpr) e =
-          case e of
-            Lit _        -> True
-            Concat _ _   -> True
-            Var _        -> False
-            Abs _ e'     -> go (Just InsideExpr) e'
-            App e1 e2    -> go (Just InsideExpr) e1
-                         || go (Just InsideExpr) e2
+
+hasConcatAbsLit :: Expr -> Bool
+hasConcatAbsLit = go Nothing
+  where
+    go :: Maybe PrintabilityMode -> Expr -> Bool
+    go Nothing e =
+      case e of
+        Var _        -> False
+        Lit _        -> False
+        Abs _ e'     -> go Nothing e'
+        App e1 e2    -> go Nothing e1 || go Nothing e2
+        Concat e1 e2 -> go (Just InsideConcat) e1
+                     || go (Just InsideConcat) e2
+    go (Just InsideConcat) e =
+      case e of
+        Lit _        -> False
+        Var _        -> False
+        Abs _ e'     -> go (Just InsideExpr) e'
+        App e1 e2    -> go (Just InsideExpr) e1
+                     || go (Just InsideExpr) e2
+        Concat e1 e2 -> go (Just InsideConcat) e1
+                     || go (Just InsideConcat) e2
+    go (Just InsideExpr) e =
+      case e of
+        Lit _        -> True
+        Concat _ _   -> True
+        Var _        -> False
+        Abs _ e'     -> go (Just InsideExpr) e'
+        App e1 e2    -> go (Just InsideExpr) e1
+                     || go (Just InsideExpr) e2
 
 data PrintabilityMode
   = InsideConcat
@@ -170,7 +192,13 @@ data PrintabilityMode
 
 
 
-fetchDocument :: MonadParse m => FilePath -> m Expr
+fetchDocument :: FilePath -> IO Expr
 fetchDocument f = do
-  txt <- liftIO $ LT.readFile f
-  fromDocument <$> parseDocument txt
+  txt <- LT.readFile f
+  d   <- runParserT $ parseDocument txt
+  pure $ fromDocument d
+
+rawDocument :: FilePath -> IO Expr
+rawDocument f = do
+  txt <- LT.readFile f
+  pure $ Lit txt

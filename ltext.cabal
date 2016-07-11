@@ -32,6 +32,7 @@ Library
                       , attoparsec
                       , directory
                       , exceptions
+                      , extra
                       , HFuse
                       , mtl
                       , pretty
@@ -53,6 +54,7 @@ Executable ltext
                       , attoparsec
                       , directory
                       , exceptions
+                      , extra
                       , mtl
                       , optparse-applicative
                       , pretty

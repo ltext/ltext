@@ -44,6 +44,7 @@ data Expr
   deriving (Show, Eq)
 
 
+
 -- | Only considers Abs, App and Var
 instance Arbitrary Expr where
   arbitrary = oneof [abs, app, var]
@@ -79,6 +80,7 @@ instance Exception PrettyPrintError
 
 type MonadPrettyPrint m =
   ( MonadThrow m
+  , MonadIO m
   )
 
 
@@ -173,6 +175,8 @@ parseExpr t =
   case parseOnly lex t of
     Left err -> throwM $ LexerError err
     Right ls -> expr ls
+
+
 
 
 expr :: MonadParse m => [Lexeme] -> m Expr
