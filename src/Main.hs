@@ -92,8 +92,13 @@ entry :: ( MonadApp m
 entry = do
   env <- ask
   let typeEnv = toTypeEnv env
-  (_,t) <- liftIO . runTypeCheckM typeEnv . typeInfer $ topLevelExpr env
-  liftIO . putStrLn $ ppType t
+  t <- liftIO . runTypeCheckM typeEnv . typeOf $ topLevelExpr env
+  if isTypeQuery env
+  then liftIO $ do
+    putStrLn $ ppType t
+    exitSuccess
+  else do
+    undefined
 
 --   eitherMainExpr <- runExceptT $ makeExpr e
 --   let mainExpr = fromError eitherMainExpr

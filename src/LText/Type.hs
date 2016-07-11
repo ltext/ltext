@@ -195,6 +195,12 @@ somewhatFreshTVar s = do
   pure . TVar $ s ++ show i
 
 
+typeOf :: MonadTypecheck m => Expr -> m Type
+typeOf e = do
+  (s,t) <- typeInfer e
+  pure $ applySubst s t
+
+
 -- TODO: Add a flag for free variable checking or not checking for documents
 typeInfer :: MonadTypecheck m => Expr -> m (Subst, Type)
 typeInfer e =
