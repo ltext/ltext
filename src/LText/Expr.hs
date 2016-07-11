@@ -16,6 +16,7 @@ a delimitation.
 import Prelude hiding (lex)
 import Data.Attoparsec.Text
 import Data.Text as T (Text)
+import qualified Data.Text.Lazy as LT
 import Data.Char
 import Text.PrettyPrint hiding (char)
 import qualified Text.PrettyPrint as PP
@@ -38,9 +39,12 @@ data Expr
   = Abs String Expr
   | App Expr Expr
   | Var String
+  | Lit LT.Text
+  | Concat Expr Expr
   deriving (Show, Eq)
 
 
+-- | Only considers Abs, App and Var
 instance Arbitrary Expr where
   arbitrary = oneof [abs, app, var]
     where
@@ -65,26 +69,40 @@ instance Arbitrary Expr where
         pure $ Var x
 
 
+data PrettyPrintError
+  = CantPrintText LT.Text
+  | CantPrintConcat
+  deriving (Show, Eq, Generic)
 
-ppExpr :: Expr -> String
-ppExpr e = render (go e)
+instance Exception PrettyPrintError
+
+
+type MonadPrettyPrint m =
+  ( MonadThrow m
+  )
+
+
+ppExpr :: MonadPrettyPrint m => Expr -> m String
+ppExpr e = render <$> go e
   where
+    go :: MonadPrettyPrint m => Expr -> m Doc
     go e' =
       case e' of
-        Abs x e'' ->
-          PP.char '\\' <> text x <+> text "->"
-                       $$ nest (5 + length x) (go e'')
+        Abs x e'' -> do
+          e''' <- go e''
+          pure $ PP.char '\\' <> text x <+> text "->"
+                              $$ nest (5 + length x) e'''
         App e1 e2 ->
           let e1Hat = case e1 of
-                Abs _ _ -> parens (go e1)
+                Abs _ _ -> parens <$> go e1
                 _       -> go e1
               e2Hat = case e2 of
-                Abs _ _ -> parens (go e2)
-                App _ _ -> parens (go e2)
+                Abs _ _ -> parens <$> go e2
+                App _ _ -> parens <$> go e2
                 _       -> go e2
-          in  e1Hat <+> e2Hat
+          in  (<+>) <$> e1Hat <*> e2Hat
         Var x ->
-          text x
+          pure $ text x
 
 
 data ScopeUse = Fresh | Stale Expr
@@ -139,6 +157,7 @@ handleParseError e = do
 type MonadParse m =
   ( MonadState ParseState m
   , MonadThrow m
+  , MonadIO m
   )
 
 runParse :: Text -> IO Expr

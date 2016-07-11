@@ -27,6 +27,7 @@ Library
   Exposed-Modules:      Application.Types
                         LText.Expr
                         LText.Type
+                        LText.Document
   Build-Depends:        base >= 4.8 && < 5
                       , attoparsec
                       , directory

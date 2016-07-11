@@ -92,7 +92,7 @@ entry :: ( MonadApp m
 entry = do
   env <- ask
   let typeEnv = toTypeEnv env
-  t <- liftIO . runTypeCheckM typeEnv . typeOf $ topLevelExpr env
+  t <- liftIO . runTypeCheckM typeEnv . typeOfTopLevel $ topLevelExpr env
   if isTypeQuery env
   then liftIO $ do
     putStrLn $ ppType t

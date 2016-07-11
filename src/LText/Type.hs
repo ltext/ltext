@@ -8,6 +8,7 @@ module LText.Type where
 
 import Application.Types
 import LText.Expr
+import LText.Document
 
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -22,8 +23,6 @@ import Control.Monad.Catch
 
 import System.Directory
 import GHC.Generics
-
-import Debug.Trace
 
 
 
@@ -50,6 +49,45 @@ ppType = render . go
                 _          -> go t1
           in  t1Hat <+> text "->" <+> go t2
 
+
+
+-- * Kit Effects
+
+data TypeError
+  = CantUnify
+      { expectedType :: Type
+      , givenType    :: Type
+      }
+  | UnboundVariable String
+  | TypecheckerInconsistent String -- should never throw
+  | OccursCheckFailure String Type
+  deriving (Show, Eq, Generic)
+
+instance Exception TypeError
+
+data TypeEnv = TypeEnv
+  { plaintextFiles :: HashSet FilePath
+  } deriving (Show, Eq)
+
+toTypeEnv :: Env -> TypeEnv
+toTypeEnv (Env _ _ r) = TypeEnv r
+
+
+type MonadTypecheck m =
+  ( MonadState Context m
+  , MonadReader TypeEnv m
+  , MonadThrow m
+  , MonadIO m
+  )
+
+type TypeCheckM = StateT Context (ReaderT TypeEnv IO)
+
+runTypeCheckM :: TypeEnv -> TypeCheckM a -> IO a
+runTypeCheckM te x =
+  runReaderT (evalStateT x initContext) te
+
+
+-- * TypeChecking
 
 newtype Subst = Subst
   { getSubst :: HashMap String Type
@@ -92,6 +130,18 @@ instance IsType Scheme where
     Scheme qs $ applySubst (Subst $ foldr HM.delete s qs) t
 
 
+
+freshTVar :: MonadTypecheck m => m Type
+freshTVar = somewhatFreshTVar "a"
+
+
+somewhatFreshTVar :: MonadTypecheck m => String -> m Type
+somewhatFreshTVar s = do
+  (Context cs i) <- get
+  put . Context cs $ i + 1
+  pure . TVar $ s ++ show i
+
+
 mostGeneralUnifier :: MonadTypecheck m => Type -> Type -> m Subst
 mostGeneralUnifier (TArrow tl1 tl2) (TArrow tr1 tr2) = do
   s1 <- mostGeneralUnifier tl1 tr1
@@ -102,14 +152,12 @@ mostGeneralUnifier t (TVar n) = varBind n t
 mostGeneralUnifier Text Text  = pure mempty
 mostGeneralUnifier t1 t2      = throwM $ CantUnify t1 t2
 
-
 -- | Substitute n for t, given there's no collision
 varBind :: MonadTypecheck m => String -> Type -> m Subst
 varBind n t
   | t == TVar n               = pure mempty
   | n `HS.member` freeTVars t = throwM $ OccursCheckFailure n t
   | otherwise                 = pure $ Subst $ HM.singleton n t
-
 
 
 data Context = Context
@@ -145,78 +193,46 @@ unQuantify (Scheme qs t) = do
   pure $ applySubst s t
 
 
--- * Kit Types
+-- ** Actual Typechecking
 
-data TypeError
-  = CantUnify
-      { expectedType :: Type
-      , givenType    :: Type
-      }
-  | UnboundVariable String
-  | TypecheckerInconsistent String -- should never throw
-  | OccursCheckFailure String Type
-  deriving (Show, Eq, Generic)
-
-instance Exception TypeError
-
-data TypeEnv = TypeEnv
-  { plaintextFiles :: HashSet FilePath
-  } deriving (Show, Eq)
-
-toTypeEnv :: Env -> TypeEnv
-toTypeEnv (Env _ _ r) = TypeEnv r
-
-
-type MonadTypecheck m =
-  ( MonadState Context m
-  , MonadReader TypeEnv m
-  , MonadThrow m
-  , MonadIO m
-  )
-
-type TypeCheckM = StateT Context (ReaderT TypeEnv IO)
-
-runTypeCheckM :: TypeEnv -> TypeCheckM a -> IO a
-runTypeCheckM te x =
-  runReaderT (evalStateT x initContext) te
-
-
--- * TypeChecking
-
-
-freshTVar :: MonadTypecheck m => m Type
-freshTVar = somewhatFreshTVar "a"
-
-
-somewhatFreshTVar :: MonadTypecheck m => String -> m Type
-somewhatFreshTVar s = do
-  (Context cs i) <- get
-  put . Context cs $ i + 1
-  pure . TVar $ s ++ show i
-
-
-typeOf :: MonadTypecheck m => Expr -> m Type
-typeOf e = do
-  (s,t) <- typeInfer e
+typeOfTopLevel :: MonadTypecheck m => Expr -> m Type
+typeOfTopLevel e = do
+  (s,t) <- typeInfer TopLevel e
   pure $ applySubst s t
 
 
+data ExprType = TopLevel | DocLevel
+
+
 -- TODO: Add a flag for free variable checking or not checking for documents
-typeInfer :: MonadTypecheck m => Expr -> m (Subst, Type)
-typeInfer e =
+typeInfer :: MonadTypecheck m => ExprType -> Expr -> m (Subst, Type)
+typeInfer mode e =
   case e of
+    Lit _ -> pure (mempty, Text)
+    Concat e1 e2 -> do
+      -- FIXME: Probably wasteful :\
+      (s1,t1) <- typeInfer mode e1
+      (s2,t2) <- typeInfer mode e2
+      s3 <- mostGeneralUnifier t1 t2
+      s4 <- mostGeneralUnifier (applySubst s3 t1) Text
+      pure (s4 <> s3 <> s2 <> s1, Text)
     Var x -> do
       ctx <- contextMap <$> get
       case HM.lookup x ctx of
-        Nothing -> do
-          exists <- liftIO $ doesFileExist x
-          if exists
-          then do
-            isRaw <- (HS.member x . plaintextFiles) <$> ask
-            if isRaw
-            then pure (mempty, Text)
-            else pure undefined -- ... FERK, the file itself needs to be parsed & checked
-          else throwM $ UnboundVariable x
+        Nothing ->
+          case mode of
+            TopLevel -> do
+              exists <- liftIO $ doesFileExist x
+              if exists
+              then do
+                isRaw <- (HS.member x . plaintextFiles) <$> ask
+                if isRaw
+                then pure (mempty, Text)
+                else do
+                  d <- liftIO . runParserT $ fetchDocument x
+                  typeInfer DocLevel d
+              else throwM $ UnboundVariable x
+            DocLevel -> throwM $ UnboundVariable x
         Just s -> do
           t <- unQuantify s
           pure (mempty, t)
@@ -225,12 +241,13 @@ typeInfer e =
       (Context cs f) <- get
       let ctx = Context (HM.insert n (Scheme HS.empty t) $ HM.delete n cs) f
       put ctx
-      (s',t') <- typeInfer e'
+      (s',t') <- typeInfer mode e'
       pure (s', TArrow (applySubst s' t) t')
     App e1 e2 -> do
       t <- freshTVar
-      (s1,t1) <- typeInfer e1
+      (s1,t1) <- typeInfer mode e1
       modify' (applySubst s1)
-      (s2,t2) <- typeInfer e2
+      (s2,t2) <- typeInfer mode e2
       s3 <- mostGeneralUnifier (applySubst s2 t1) (TArrow t2 t)
       pure (s3 <> s2 <> s1, applySubst s3 t)
+
