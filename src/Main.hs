@@ -25,7 +25,7 @@ import Control.Monad.Catch
 
 
 versionString :: String
-versionString = "1.0.0"
+versionString = "0.1.0"
 
 
 data Opts = Opts
@@ -88,8 +88,7 @@ main = do
       cli = info (helper <*> opts) $
           fullDesc
        <> progDesc "Evaluate EXPRESSION and send the substitution to stdout.\
-                  \ Notice how the filenames used CAN'T use spaces ` ` due to\
-                  \ its representation as function application. It's also ghotty :x"
+                  \ See http://ltext.github.io/ for more details."
        <> header "λtext - higher-order file applicator"
 
   os <- execParser cli
@@ -132,46 +131,7 @@ resolveTopLevelExpr e =
       isRaw <- HS.member f . rawTerms <$> ask
       d     <- liftIO $ if isRaw
                         then rawDocument f
-                        else fetchDocument f
+                        else fetchDocument f :: IO Expr
       pure $ substitute f d e'
-
-
-
---   eitherMainExpr <- runExceptT $ makeExpr e
---   let mainExpr = fromError eitherMainExpr
--- 
---   fileExprs <- liftIO $ forM (Set.toList $ fv mainExpr) $ \f -> do
---                   content <- liftIO $ LT.readFile f
---                   eContentExpr <- runExceptT $ parseDocument f content
---                   return $ fromError eContentExpr
--- 
---   app <- ask
--- 
---   let subst :: Map.Map String Expr
---       subst = Map.fromList $ Set.toList (fv mainExpr) `zip` fileExprs
---       rawExpr = apply subst mainExpr
---       l = leftDelim app
---       r = rightDelim app
--- 
---   eitherExprType <- runExceptT $ runTI $ typeInference (Context Map.empty) rawExpr
---   let exprType = fromError eitherExprType
--- 
---   eitherExpr <- runExceptT $ runEv $ reduce rawExpr
---   let expr = fromError eitherExpr
--- 
---   if isTypeQuery app
---   then liftIO $ putStrLn $ show mainExpr ++ " :: " ++ show (generalize (Context Map.empty) exprType)
---   else if isBeingShown app
---        then liftIO $ putStrLn $ show expr ++ " :: " ++ show (generalize (Context Map.empty) exprType)
---        else if not (litsAtTopLevel expr)
---             then error $ "Error: Result has literals in sub expression - `" ++ show expr ++ "` - cannot render soundly."
---             else deepseq exprType $
---                  if outputDest app == Stdout
---                  then liftIO $ LT.putStr $ render (l,r) expr
---                  else liftIO $ LT.writeFile (getFilePath $ outputDest app) $ render (l,r) expr
---   where
---     fromError me = case me of
---       Left err -> error err
---       Right e  -> e
 
 

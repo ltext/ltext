@@ -1,5 +1,5 @@
 Name:                   ltext
-Version:                1.0.0
+Version:                0.1.0
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
@@ -14,7 +14,8 @@ Description:
   .
   Please see the <https://github.com/ltext/ltext github page> for more details.
   .
-  All credits go to Martin Grabmueller's <http://hackage.haskell.org/package/AlgorithmW AlgorithmW>
+  All credits go to Martin Grabmueller's
+  <http://hackage.haskell.org/package/AlgorithmW AlgorithmW>
   package for the type inference algorithm used in λtext.
 Cabal-Version:          >= 1.10
 Build-Type:             Simple

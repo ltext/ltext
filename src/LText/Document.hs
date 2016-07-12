@@ -48,17 +48,10 @@ parseDocument ts =
 
               Nothing ->
                 case unsnoc acc of
-                  Just (acc',RawText b') ->
-                    pure $ acc' ++ [ RawText $ if b == ""
-                                               then b'
-                                               else LT.unlines [b',b]
-                                   ]
-                  Just _ ->
-                    if b == ""
-                    then pure acc
-                    else pure $ acc ++ [RawText b]
-                  Nothing ->
-                    pure [RawText b]
+                  Just (acc', RawText b') ->
+                    pure $ acc' ++ [RawText $ b' <> "\n" <> b]
+                  _ ->
+                    pure $ acc  ++ [RawText b]
 
       in if head' == ""
       then pure $ Document [] [RawText ts]
@@ -95,9 +88,9 @@ printDocument mds (Document head' body) = do
     [] -> pure $ LT.unlines bs
     _ ->
       case mds of
-        Nothing -> throwM NoExplicitDelimiters
+        Nothing      -> throwM NoExplicitDelimiters
         Just (ld,rd) ->
-          pure . LT.unlines $
+          pure . LT.intercalate "\n" $
               LT.unwords (ld : (head' ++ [rd]))
             : bs
   where
@@ -105,7 +98,7 @@ printDocument mds (Document head' body) = do
     go (RawText t)    = pure t
     go (Expression e) =
       case mds of
-        Nothing -> throwM NoExplicitDelimiters
+        Nothing      -> throwM NoExplicitDelimiters
         Just (ld,rd) -> do
           e' <- LT.pack <$> ppExpr e
           pure $ ld <> " " <> e' <> " " <> rd
