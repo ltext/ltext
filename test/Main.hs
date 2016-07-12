@@ -23,6 +23,5 @@ tests = testGroup "LText test suite"
 printParseIso :: Expr -> Property
 printParseIso e =
   ioProperty $ do
-    print e
     e' <- runParse . T.pack =<< ppExpr e
     pure $ e' == e
