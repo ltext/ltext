@@ -18,6 +18,8 @@ import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.IO.Class
 
+import System.IO
+import System.Exit
 import GHC.Generics
 
 
@@ -123,6 +125,19 @@ data PrintError
   deriving (Show, Eq, Generic)
 
 instance Exception PrintError
+
+handlePrintError :: PrintError -> IO a
+handlePrintError e = do
+  hPutStrLn stderr $
+    case e of
+      ConcatExprText ->
+        "[Print Error] Can't print textual data while residually inside an expression"
+      NoExplicitDelimiters ->
+        "[Print Error] Can't render a document with residual arity without explicit\
+        \ --left and --right delimiters"
+  exitFailure
+
+
 
 
 toDocument :: MonadThrow m => Expr -> m Document

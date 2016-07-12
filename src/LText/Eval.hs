@@ -5,17 +5,11 @@
 module LText.Eval where
 
 import LText.Expr
-import LText.Document
 
 import Data.Text.Lazy                as LT (unlines)
 import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS
-import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
 import Data.Monoid
-import Control.Monad
-import Control.Monad.Catch
-import Control.Monad.IO.Class
 
 
 evaluate :: Expr -> Expr
@@ -35,13 +29,13 @@ evaluate e =
 substitute :: String -> Expr -> Expr -> Expr
 substitute n x e =
   case e of
-    Lit t                -> Lit t
-    Concat e1 e2         -> Concat (substitute n x e1) (substitute n x e2)
-    Var n'   | n == n'   -> x
-             | otherwise -> Var n'
-    App e1 e2            -> App (substitute n x e1) (substitute n x e2)
-    Abs n' e | n == n'   -> Abs n' e
-             | otherwise -> Abs n' $ substitute n x e
+    Lit t                 -> Lit t
+    Concat e1 e2          -> Concat (substitute n x e1) (substitute n x e2)
+    Var n'    | n == n'   -> x
+              | otherwise -> Var n'
+    App e1 e2             -> App (substitute n x e1) (substitute n x e2)
+    Abs n' e' | n == n'   -> Abs n' e'
+              | otherwise -> Abs n' $ substitute n x e'
 
 
 freeVars :: Expr -> HashSet String

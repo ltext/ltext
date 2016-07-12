@@ -96,7 +96,10 @@ main = do
   then do hPutStrLn stderr $ "Version: " ++ versionString
           exitSuccess
   else do env <- optsToEnv os
-          runAppM env entry
+          let catchErrs = handle handleParseError
+                        . handle handlePrintError
+                        . handle handleTypeError
+          catchErrs $ runAppM env entry
 
 
 -- | Entry point, post options parsing

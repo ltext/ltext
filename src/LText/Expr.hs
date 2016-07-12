@@ -70,13 +70,6 @@ instance Arbitrary Expr where
         pure $ Var x
 
 
-data PrettyPrintError
-  = CantPrintText LT.Text
-  | CantPrintConcat
-  deriving (Show, Eq, Generic)
-
-instance Exception PrettyPrintError
-
 
 type MonadPrettyPrint m =
   ( MonadThrow m
@@ -140,9 +133,9 @@ handleParseError e = do
       LambdaInsideLambda ls ->
         "[Parse Error] A lambda is inside a lambda declaration,\
         \ with trailing token stream: " ++ show ls
-      LambdaInStaleScope ls e ->
+      LambdaInStaleScope ls e' ->
         "[Parse Error] A lambda is inside a stale scope,\
-        \ with trailing token stream: " ++ show ls ++ " and parse state " ++ show e
+        \ with trailing token stream: " ++ show ls ++ " and parse state " ++ show e'
       ArrowWithoutLambda ls ->
         "[Parse Error] An arrow was found without a preceding lambda,\
         \ with trailing token stream: " ++ show ls
@@ -163,7 +156,7 @@ type MonadParse m =
   )
 
 runParse :: Text -> IO Expr
-runParse = handle handleParseError . runParserT . parseExpr
+runParse = runParserT . parseExpr
 
 
 runParserT :: StateT ParseState IO a -> IO a

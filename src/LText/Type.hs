@@ -22,6 +22,8 @@ import Control.Monad.Reader
 import Control.Monad.Catch
 
 import System.Directory
+import System.IO
+import System.Exit
 import GHC.Generics
 
 
@@ -59,11 +61,24 @@ data TypeError
       , givenType    :: Type
       }
   | UnboundVariable String
-  | TypecheckerInconsistent String -- should never throw
   | OccursCheckFailure String Type
   deriving (Show, Eq, Generic)
 
 instance Exception TypeError
+
+handleTypeError :: TypeError -> IO a
+handleTypeError e = do
+  hPutStrLn stderr $
+    case e of
+      CantUnify t1 t2 ->
+        "[Type Error] Can't unify type " ++ show t1 ++ " with " ++ show t2
+      UnboundVariable n ->
+        "[Type Error] Unbound variable " ++ show n
+      OccursCheckFailure n t ->
+        "[Type Error] Occurs check failure: type variable " ++ show n ++ " in " ++ show t
+  exitFailure
+
+
 
 data TypeEnv = TypeEnv
   { plaintextFiles :: HashSet FilePath
@@ -206,13 +221,13 @@ data ExprType = TopLevel | DocLevel
 
 -- TODO: Add a flag for free variable checking or not checking for documents
 typeInfer :: MonadTypecheck m => ExprType -> Expr -> m (Subst, Type)
-typeInfer mode e =
+typeInfer mode' e =
   case e of
     Lit _ -> pure (mempty, Text)
     Concat e1 e2 -> do
       -- FIXME: Probably wasteful :\
-      (s1,t1) <- typeInfer mode e1
-      (s2,t2) <- typeInfer mode e2
+      (s1,t1) <- typeInfer mode' e1
+      (s2,t2) <- typeInfer mode' e2
       s3 <- mostGeneralUnifier t1 t2
       s4 <- mostGeneralUnifier (applySubst s3 t1) Text
       pure (s4 <> s3 <> s2 <> s1, Text)
@@ -220,7 +235,7 @@ typeInfer mode e =
       ctx <- contextMap <$> get
       case HM.lookup x ctx of
         Nothing ->
-          case mode of
+          case mode' of
             TopLevel -> do
               exists <- liftIO $ doesFileExist x
               if exists
@@ -241,13 +256,13 @@ typeInfer mode e =
       (Context cs f) <- get
       let ctx = Context (HM.insert n (Scheme HS.empty t) $ HM.delete n cs) f
       put ctx
-      (s',t') <- typeInfer mode e'
+      (s',t') <- typeInfer mode' e'
       pure (s', TArrow (applySubst s' t) t')
     App e1 e2 -> do
       t <- freshTVar
-      (s1,t1) <- typeInfer mode e1
+      (s1,t1) <- typeInfer mode' e1
       modify' (applySubst s1)
-      (s2,t2) <- typeInfer mode e2
+      (s2,t2) <- typeInfer mode' e2
       s3 <- mostGeneralUnifier (applySubst s2 t1) (TArrow t2 t)
       pure (s3 <> s2 <> s1, applySubst s3 t)
 

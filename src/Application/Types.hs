@@ -8,9 +8,7 @@ module Application.Types where
 import LText.Expr
 import Control.Monad.Reader
 import Control.Monad.Catch
-import Control.Monad.IO.Class
 import Data.HashSet (HashSet)
-import qualified Data.HashSet as HS
 
 
 -- | More technical shared data
