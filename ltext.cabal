@@ -75,6 +75,7 @@ Test-Suite spec
                       , ltext
                       , QuickCheck
                       , quickcheck-combinators
+                      , text
                       , tasty
                       , tasty-quickcheck
 
