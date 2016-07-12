@@ -3,128 +3,95 @@
 λtext
 =====
 
-[![Stories in Ready](https://badge.waffle.io/ltext/ltext.png?label=ready&title=Ready)](https://waffle.io/ltext/ltext)
-
 > General-Purpose Templating Utility
 
 # Overview
 
 λtext turns text files into higher-order functions, featuring a Hindley-Milner /
-prenex polymorphic type system. See our [github.io page](http://ltext.github.io/).
+prenex polymorphic type system. See the [github.io page](http://ltext.github.io/).
 
-## Installation
+## Building
 
 ```bash
-$> cabal install ltext
+$> git clone git@github.com/ltext/ltext
+$> cd ltext
+$> stack install ltext
 ```
 
-## Usage
+This should install in one pass; all the non-stackage dependencies are included
+in `stack.yaml`.
 
-You can supply options manually with flags:
+## Usage
 
 ```bash
 $> ltext --help
 
-ltext - higher-order file applicator
+λtext - higher-order file applicator
 
-Usage: ltext EXPRESSION [-t|--type] [-o|--output OUTPUT] [-l|--left LEFTDELIM]
-             [-r|--right RIGHTDELIM] [-c|--config CONFIG]
-  Evaluate EXPRESSION and send to OUTPUT
+Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE]
+             [--left LEFT] [--right RIGHT]
+  Evaluate EXPRESSION and send the substitution to stdout. See
+  http://ltext.github.io/ for more details.
 
 Available options:
   -h,--help                Show this help text
-  -t,--type                query the type signature of an expression
-  -o,--output OUTPUT       output destination
-  -l,--left LEFTDELIM      left delimiter
-  -r,--right RIGHTDELIM    right delimiter
-  -c,--config CONFIG       location of config file
+  --version                Print the version number
+  -t,--type                Perform type inference on an expression
+  -v,--verbose             Be verbose, sending info through stderr
+  -r,--raw FILE            Treat these files as plaintext without an arity
+                           header
+  --left LEFT              The left delimiter to use for rendering partially
+                           applied files
+  --right RIGHT            The right delimiter to use for rendering partially
+                           applied files
 
-# as an example
-$> ltext "foo bar" --left "{{" --right "}}" -o "baz"
-```
+$> ltext --type "\a -> a"
 
-or, you can store commonly used ones in a YAML file under `./.ltext/config.yaml`:
-
-```bash
-$> cat ./.ltext/config.yaml
-
-typeQuery: false
-left: "//{{"
-right: "}}"
-```
-
-```bash
-$> cat foo
-
-## x ##
-
-asdf
-birds
-
-## x ##
-
-fsda
-```
-
-```bash
-# keeping delimiters in-line
-$> ltext "foo"
-
-//{{ x }}
-
-asdf
-bird
-
-//{{ x }}
-
-fsda
-
-$> cat bar
-
-hashtagtrashswag
-
-# application
-$> ltext "foo bar"
-
-hashtagtrashswag
-
-asdf
-bird
-
-hashtagtrashswag
-
-fsda
+a0 -> a0
 ```
 
 ## How It Works
 
-From λtext's point of view, _any file_ can be a template. Just declare parameters
-in your files (usually in a different syntax than the file's native tongue,
-via comments or obscure delimiters), use those variables somewhere in
-the content, then with the `ltext` command you apply the function-y files to each other.
+From λtext's point of view, _any text file_ can be a template (given that
+it's utf-8 encoded). Just declare parameters in the first line of
+your files (usually in a different syntax than the file's native tongue,
+via comments or obscure delimiters), then use those variables somewhere in
+the content. With the `ltext` command you can then apply the function-y
+files to each other.
 
 ### The CLI
 
 There will be two primary uses of the `ltext` command - evaluating template
 expressions, and querying for the type signature of a template/expression.
 
-#### Expression Evaluation
-
-When we evaluate a template expression, normally we just feed the result to
-`stdout`. But there is also the `-o` flag, for explicitly stating an output file.
-
-> __Note__: all output from `ltext` will be UTF-8.
-
 #### Type Queries
 
 Just like the `:t` command in GHCi, you can find out the type of a template or
 expression with `-t`.
 
+#### Expression Evaluation
+
+All files have __closed scope__, meaning they only have access to the variables
+declared in the file. For instance:
+
+```
+{{ foo }}
+
+...
+```
+
+Will _only_ have access to the variable `foo`, while using the delimiters `{{`
+and `}}` to escape your expression.
+
 #### Variable Recognition
 
-When we use a parameter in a file, we need it to be easily recognized by a parser -
-either a different syntax than to the language you're working with - an explicit delimitation.
+When we use a parameter in a file, we need it to be easily recognized by a parser;
+a different syntax than to the language you're working with.
 
-The first line in a file will be tested against to see if it qualifies as a
-lambda header. If you don't want a file have recognized arity, just throw in a
-newline.
+The first line in a file will be parsed to see if it qualifies as a
+lambda header. If you don't want a file have recognized arity, just invoke `ltext`
+with the `--raw` argument listing the file:
+
+```bash
+$> ltext "foo bar" --raw "bar"
+```
