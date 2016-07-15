@@ -26,7 +26,7 @@ in `stack.yaml`.
 ```bash
 $> ltext --help
 
-λtext - higher-order file applicator
+λtext - parameterized file evaluator
 
 Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE]
              [--left LEFT] [--right RIGHT]

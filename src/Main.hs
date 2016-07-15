@@ -89,7 +89,7 @@ main = do
           fullDesc
        <> progDesc "Evaluate EXPRESSION and send the substitution to stdout.\
                   \ See http://ltext.github.io/ for more details."
-       <> header "λtext - higher-order file applicator"
+       <> header "λtext - parametrized file evaluator"
 
   os <- execParser cli
   if version os
