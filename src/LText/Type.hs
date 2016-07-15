@@ -71,12 +71,12 @@ handleTypeError e = do
   hPutStrLn stderr $
     case e of
       CantUnify t1 t2 ->
-        "[Type Error] Can't unify type " ++ show t1 ++ " with " ++ show t2
+        "[Type Error] Can't unify type " ++ ppType t1 ++ " with " ++ ppType t2
       UnboundVariable n ->
         "[Type Error] Unbound variable " ++ show n
       OccursCheckFailure n t ->
         "[Type Error] Occurs check failure: type variable " ++ show n ++ " in "
-        ++ show t ++ ". Note: recursion is forbidden"
+        ++ ppType t ++ ". Note: recursion is forbidden"
   exitFailure
 
 

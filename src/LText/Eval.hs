@@ -22,8 +22,10 @@ evaluate e =
       case (evaluate e1, evaluate e2) of
         (Lit t1, Lit t2) -> Lit $! t1 ++ t2
         (e1'   , e2'   ) -> Concat e1' e2'
-    App (Abs n e1) e2 -> substitute n e2 e1
-    App _ _ -> error "Typechecker Inconsistent!"
+    App e1 e2 ->
+      case evaluate e1 of
+        Abs n e1' -> substitute n (evaluate e2) (evaluate e1')
+        e1'       -> error $ "Typechecker Inconsistent! " ++ show e1'
 
 
 substitute :: String -> Expr -> Expr -> Expr

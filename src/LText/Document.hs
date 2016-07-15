@@ -121,7 +121,7 @@ fromDocument (Document head' body) =
 
 
 data PrintError
-  = ConcatExprText
+  = ConcatExprText Expr
   | NoExplicitDelimiters
   deriving (Show, Eq, Generic)
 
@@ -131,19 +131,28 @@ handlePrintError :: PrintError -> IO a
 handlePrintError e = do
   hPutStrLn stderr $
     case e of
-      ConcatExprText ->
-        "[Print Error] Can't print textual data while residually inside an expression"
+      ConcatExprText ex ->
+        "[Print Error] Can't print textual data while residually inside an expression: "
+        ++ show (subLit ex) --FIXME: Need backtracing; Lit annotated with source location?
+                            -- Backtracing monad?
       NoExplicitDelimiters ->
         "[Print Error] Can't render a document with residual arity without explicit\
         \ --left and --right delimiters"
   exitFailure
+  where
+    subLit :: Expr -> Expr
+    subLit (Lit _) = Lit ["###"]
+    subLit (App e1 e2) = App (subLit e1) (subLit e2)
+    subLit (Concat e1 e2) = Concat (subLit e1) (subLit e2)
+    subLit (Var n) = Var n
+    subLit (Abs n e) = Abs n (subLit e)
 
 
 
 toDocument :: MonadThrow m => Expr -> m Document
 toDocument e =
   if not $ isPrintable e
-  then throwM ConcatExprText
+  then throwM $ ConcatExprText e
   else case getInitArity e of
     (hs,e') -> pure . Document hs $ getBody e'
   where
