@@ -121,7 +121,7 @@ entry = do
                Just (ld,rd) -> Just (LT.pack ld, LT.pack rd)
     txt <- printDocument ds d
     liftIO $ do
-      LT.putStrLn txt
+      LT.putStr txt
       exitSuccess
 
 

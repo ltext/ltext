@@ -39,7 +39,7 @@ data Expr
   = Abs String Expr
   | App Expr Expr
   | Var String
-  | Lit LT.Text
+  | Lit [LT.Text]
   | Concat Expr Expr
   deriving (Show, Eq)
 
@@ -77,6 +77,7 @@ type MonadPrettyPrint m =
   )
 
 
+-- | TODO: pretty print exceptions
 ppExpr :: MonadPrettyPrint m => Expr -> m String
 ppExpr e = render <$> go e
   where

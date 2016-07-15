@@ -23,13 +23,14 @@ import System.Exit
 import GHC.Generics
 
 
+
 data Document = Document
   { documentArity :: [Text]
   , documentBody  :: [DocumentBody]
   } deriving (Show, Eq)
 
 data DocumentBody
-  = RawText Text
+  = RawText [Text]
   | Expression Expr
   deriving (Show, Eq)
 
@@ -39,25 +40,23 @@ parseDocument ts =
   case LT.lines ts of
     [] -> pure $ Document [] []
     (head':body) ->
-      let (l,r,hs) = parseHead head'
+      case parseHead head' of
+        Nothing       -> pure $ Document [] [RawText $! head':body]
+        Just (l,r,hs) ->
+          let go :: MonadParse m => [DocumentBody] -> Text -> m [DocumentBody]
+              go acc b =
+                case findExpression l r b of
+                  Just ts' -> do
+                    e <- liftIO . runParse $ LT.toStrict ts'
+                    pure $ acc ++ [Expression e]
 
-          go :: MonadParse m => [DocumentBody] -> Text -> m [DocumentBody]
-          go acc b =
-            case findExpression l r b of
-              Just ts' -> do
-                e <- liftIO . runParse $ LT.toStrict ts'
-                pure $ acc ++ [Expression e]
-
-              Nothing ->
-                case unsnoc acc of
-                  Just (acc', RawText b') ->
-                    pure $ acc' ++ [RawText $ b' <> "\n" <> b]
-                  _ ->
-                    pure $ acc  ++ [RawText b]
-
-      in if head' == ""
-      then pure $ Document [] [RawText ts]
-      else Document hs <$> foldM go [] body
+                  Nothing ->
+                    case unsnoc acc of
+                      Just (acc', RawText b') ->
+                        pure $ acc' ++ [RawText $! b' ++ [b]]
+                      _ ->
+                        pure $ acc  ++ [RawText [b]]
+          in  Document hs <$> foldM go [] body
   where
     findExpression :: Text -> Text -> Text -> Maybe Text
     findExpression l r ts' =
@@ -72,38 +71,40 @@ parseDocument ts =
             guard $ r' == r
             Just $ LT.unwords ts'''
 
-    parseHead :: LT.Text -> (Text, Text, [Text])
+    parseHead :: LT.Text -> Maybe (Text, Text, [Text])
     parseHead h =
       case LT.words h of
-        []    -> ("","",[])
-        [_]   -> ("","",[])
-        [l,r] -> (l, r, [])
+        []    -> Nothing
+        [_]   -> Nothing
+        [_,_] -> Nothing
         (l:hs) -> case unsnoc hs of
           Nothing      -> error "impossible state"
-          Just (hs',r) -> (l, r, hs')
+          Just (hs',r) -> Just (l, r, hs')
+
 
 
 printDocument :: MonadPrettyPrint m => Maybe (Text, Text) -> Document -> m Text
 printDocument mds (Document head' body) = do
-  bs <- mapM go body
+  bs <- concat <$> mapM go body
   case head' of
     [] -> pure $ LT.unlines bs
     _ ->
       case mds of
         Nothing      -> throwM NoExplicitDelimiters
         Just (ld,rd) ->
-          pure . LT.intercalate "\n" $
+          pure . LT.unlines $
               LT.unwords (ld : (head' ++ [rd]))
             : bs
   where
-    go :: MonadPrettyPrint m => DocumentBody -> m Text
+    go :: MonadPrettyPrint m => DocumentBody -> m [Text]
     go (RawText t)    = pure t
     go (Expression e) =
       case mds of
         Nothing      -> throwM NoExplicitDelimiters
         Just (ld,rd) -> do
           e' <- LT.pack <$> ppExpr e
-          pure $ ld <> " " <> e' <> " " <> rd
+          pure [ld <> " " <> e' <> " " <> rd]
+
 
 
 fromDocument :: Document -> Expr
@@ -136,7 +137,6 @@ handlePrintError e = do
         "[Print Error] Can't render a document with residual arity without explicit\
         \ --left and --right delimiters"
   exitFailure
-
 
 
 
@@ -208,5 +208,5 @@ fetchDocument f = do
 
 rawDocument :: FilePath -> IO Expr
 rawDocument f = do
-  txt <- LT.readFile f
-  pure $ Lit txt
+  txts <- LT.lines <$> LT.readFile f
+  pure $ Lit txts

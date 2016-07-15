@@ -20,7 +20,7 @@ evaluate e =
     Lit t    -> Lit t
     Concat e1 e2 ->
       case (evaluate e1, evaluate e2) of
-        (Lit t1, Lit t2) -> Lit $ LT.unlines [t1,t2]
+        (Lit t1, Lit t2) -> Lit $! t1 ++ t2
         (e1'   , e2'   ) -> Concat e1' e2'
     App (Abs n e1) e2 -> substitute n e2 e1
     App _ _ -> error "Typechecker Inconsistent!"

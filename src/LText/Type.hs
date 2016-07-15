@@ -75,7 +75,8 @@ handleTypeError e = do
       UnboundVariable n ->
         "[Type Error] Unbound variable " ++ show n
       OccursCheckFailure n t ->
-        "[Type Error] Occurs check failure: type variable " ++ show n ++ " in " ++ show t
+        "[Type Error] Occurs check failure: type variable " ++ show n ++ " in "
+        ++ show t ++ ". Note: recursion is forbidden"
   exitFailure
 
 
