@@ -25,7 +25,7 @@ evaluate e =
     App e1 e2 ->
       case evaluate e1 of
         Abs n e1' -> substitute n (evaluate e2) (evaluate e1')
-        e1'       -> error $ "Typechecker Inconsistent! " ++ show e1'
+        e1'       -> App e1' (evaluate e2)
 
 
 substitute :: String -> Expr -> Expr -> Expr
