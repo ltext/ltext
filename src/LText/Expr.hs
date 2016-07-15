@@ -47,27 +47,42 @@ data Expr
 
 -- | Only considers Abs, App and Var
 instance Arbitrary Expr where
-  arbitrary = oneof [abs, app, var]
+  arbitrary = sized $ \n ->
+    if n <= 1
+    then var
+    else resize (n-1) (oneof [abs, app, var]) `suchThat` (\e -> sizeOfExpr e <= 10)
     where
+      sizeOfExpr (Lit _) = 1
+      sizeOfExpr (Var _) = 1
+      sizeOfExpr (Abs _ e) = 1 + sizeOfExpr e
+      sizeOfExpr (App e1 e2) = 1 + sizeOfExpr e1 + sizeOfExpr e2
+      sizeOfExpr (Concat e1 e2) = 1 + sizeOfExpr e1 + sizeOfExpr e2
+
       isFilename c = c /= '\\'
                   && c /= '('
                   && c /= ')'
                   && (isAlphaNum c
                   || isSymbol c
                   || isPunctuation c)
-      abs = do
+      abs = sized $ \n -> do
         (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
                        :: Gen (Between 1 5 [] Char)
-        e <- arbitrary
+        e <- resize (n-1) arbitrary
         pure $ Abs x e
-      app = do
-        e1 <- arbitrary
-        e2 <- arbitrary
+      app = sized $ \n -> do
+        e1 <- resize (n-1) arbitrary
+        e2 <- resize (n-1) arbitrary
         pure $ App e1 e2
       var = do
         (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
                        :: Gen (Between 1 5 [] Char)
         pure $ Var x
+
+  shrink (Lit _)        = []
+  shrink (Var _)        = []
+  shrink (Abs _ e)      = [e]
+  shrink (App e1 e2)    = [e1,e2]
+  shrink (Concat e1 e2) = [e1,e2]
 
 
 

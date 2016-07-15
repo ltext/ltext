@@ -35,13 +35,13 @@ data DocumentBody
   deriving (Show, Eq)
 
 
-parseDocument :: MonadParse m => LT.Text -> m Document
+parseDocument :: MonadParse m => LT.Text -> m (Document, Maybe (Text, Text))
 parseDocument ts =
   case LT.lines ts of
-    [] -> pure $ Document [] []
+    [] -> pure (Document [] [], Nothing)
     (head':body) ->
       case parseHead head' of
-        Nothing       -> pure $ Document [] [RawText $! head':body]
+        Nothing       -> pure (Document [] [RawText $! head':body], Nothing)
         Just (l,r,hs) ->
           let go :: MonadParse m => [DocumentBody] -> Text -> m [DocumentBody]
               go acc b =
@@ -56,7 +56,8 @@ parseDocument ts =
                         pure $ acc' ++ [RawText $! b' ++ [b]]
                       _ ->
                         pure $ acc  ++ [RawText [b]]
-          in  Document hs <$> foldM go [] body
+          in  do d <- Document hs <$> foldM go [] body
+                 pure (d, Just (l,r))
   where
     findExpression :: Text -> Text -> Text -> Maybe Text
     findExpression l r ts' =
@@ -141,11 +142,11 @@ handlePrintError e = do
   exitFailure
   where
     subLit :: Expr -> Expr
-    subLit (Lit _) = Lit ["###"]
-    subLit (App e1 e2) = App (subLit e1) (subLit e2)
+    subLit (Lit _)        = Lit ["###"]
+    subLit (App e1 e2)    = App (subLit e1) (subLit e2)
     subLit (Concat e1 e2) = Concat (subLit e1) (subLit e2)
-    subLit (Var n) = Var n
-    subLit (Abs n e) = Abs n (subLit e)
+    subLit (Var n)        = Var n
+    subLit (Abs n e')     = Abs n (subLit e')
 
 
 
@@ -211,8 +212,8 @@ data PrintabilityMode
 
 fetchDocument :: FilePath -> IO Expr
 fetchDocument f = do
-  txt <- LT.readFile f
-  d   <- runParserT $ parseDocument txt
+  txt   <- LT.readFile f
+  (d,_) <- runParserT $ parseDocument txt
   pure $ fromDocument d
 
 rawDocument :: FilePath -> IO Expr
