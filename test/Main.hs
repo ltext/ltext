@@ -27,9 +27,9 @@ tests = testGroup "LText test suite"
   , testGroup "Document"
       [ QC.testProperty "Print/Parse Iso" printParseIsoDoc
       ]
-  , testGroup "Type"
-      [ QC.testProperty "Consistency" consistentType
-      ]
+--  , testGroup "Type"
+--      [ QC.testProperty "Consistency" consistentType
+--      ]
   ]
 
 
@@ -67,11 +67,22 @@ printParseIsoDoc (Document head body, Delims lr) =
         (d',mlr') <- runParserT $ parseDocument txt
         pure $ case mlr' of
           Nothing  -> d == d'
-          Just lr' -> d == d' -- && lr == lr'
+          Just lr' -> d == d' && lr == lr'
 
 
-consistentType :: Expr -> Property
-consistentType e =
+newtype BoundedExpr = BoundedExpr
+  { getBoundedExpr :: Expr
+  } deriving (Show, Eq)
+
+instance Arbitrary BoundedExpr where
+  arbitrary = do
+    e <- arbitrary
+    let hs = freeVars e
+    pure . BoundedExpr $ Prelude.foldr Abs e hs
+
+
+consistentType :: BoundedExpr -> Property
+consistentType (BoundedExpr e) =
   ioProperty $ do
     t1 <- runTypeCheckM emptyTypeEnv $ typeOfTopLevel e
     t2 <- runTypeCheckM emptyTypeEnv . typeOfTopLevel $ evaluate e
