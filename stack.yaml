@@ -46,7 +46,7 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
   - HFuse-0.2.4.5
-  - quickcheck-combinators-0.0.0
+  - quickcheck-combinators-0.0.1
   - unfoldable-restricted-0.0.2
   - unfoldable-0.8.3
   - unit-constraint-0.0.0

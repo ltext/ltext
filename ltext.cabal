@@ -40,7 +40,7 @@ Library
                       , text
                       , transformers
                       , QuickCheck
-                      , quickcheck-combinators
+                      , quickcheck-combinators >= 0.0.1
                       , quickcheck-instances
                       , unordered-containers
 

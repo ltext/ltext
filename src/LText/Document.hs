@@ -25,7 +25,7 @@ import System.Exit
 import GHC.Generics
 
 import Test.QuickCheck
-import Test.QuickCheck.Instances
+import Test.QuickCheck.Instances ()
 import Test.QuickCheck.Combinators
 
 
@@ -37,15 +37,10 @@ data Document = Document
 
 instance Arbitrary Document where
   arbitrary = do
-    (Between hs) <- arbitrary `suchThat` (\(Between xs) -> all (\xs' -> all isAlphaNum xs'
-                                                                     && length xs' > 1
-                                                                     && length xs' < 5
-                                                               )
-                                                           xs
-                                         )
-                    :: Gen (Between 1 5 [] String)
+    (Between hs)   <- arbitrary `suchThat` (all (all isAlphaNum))
+                      :: Gen (Between 1 5 [] (Between 1 5 [] Char))
     (Between body) <- arbitrary :: Gen (Between 1 10 [] DocumentBody)
-    pure $ Document (LT.pack <$> hs) body
+    pure $ Document (LT.pack . getBetween <$> hs) body
  -- shrink (Document hs body) =
  --   Document <$> shrink hs <*> shrink body
 
@@ -56,10 +51,10 @@ data DocumentBody
   deriving (Show, Eq)
 
 instance Arbitrary DocumentBody where
-  arbitrary = sized $ \n -> do
-    oneof [ RawText <$> (LT.lines <$> arbitrary) `suchThat` (\ls -> length ls > 1
-                                                                 && all (all isAlphaNum)
-                                                                    (LT.unpack <$> ls))
+  arbitrary = do
+    oneof [ do (Between ls) <- arbitrary `suchThat` (all (all isAlphaNum))
+                               :: Gen (Between 1 10 [] (Between 1 10 [] Char))
+               pure . RawText $ (LT.pack . getBetween) <$> ls
           , Expression <$> arbitrary
           ]
   shrink (Expression e) = Expression <$> shrink e
