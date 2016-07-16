@@ -27,6 +27,7 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      Application.Types
                         LText.Expr
+                        LText.Eval
                         LText.Type
                         LText.Document
   Build-Depends:        base >= 4.8 && < 5

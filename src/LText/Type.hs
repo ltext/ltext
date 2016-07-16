@@ -88,6 +88,9 @@ data TypeEnv = TypeEnv
 toTypeEnv :: Env -> TypeEnv
 toTypeEnv (Env _ _ r _) = TypeEnv r
 
+emptyTypeEnv :: TypeEnv
+emptyTypeEnv = TypeEnv HS.empty
+
 
 type MonadTypecheck m =
   ( MonadState Context m
