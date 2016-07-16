@@ -2,6 +2,7 @@
     FlexibleContexts
   , OverloadedStrings
   , DeriveGeneric
+  , DataKinds
   #-}
 
 module LText.Document where
@@ -13,6 +14,7 @@ import qualified Data.Text.Lazy    as LT
 import qualified Data.Text.Lazy.IO as LT
 
 import Data.Monoid
+import Data.Char
 import Data.List.Extra (unsnoc)
 import Control.Monad
 import Control.Monad.Catch
@@ -22,6 +24,10 @@ import System.IO
 import System.Exit
 import GHC.Generics
 
+import Test.QuickCheck
+import Test.QuickCheck.Instances
+import Test.QuickCheck.Combinators
+
 
 
 data Document = Document
@@ -29,10 +35,49 @@ data Document = Document
   , documentBody  :: [DocumentBody]
   } deriving (Show, Eq)
 
+instance Arbitrary Document where
+  arbitrary = do
+    (Between hs) <- arbitrary `suchThat` (\(Between xs) -> all (\xs' -> all isAlphaNum xs'
+                                                                     && length xs' > 1
+                                                                     && length xs' < 5
+                                                               )
+                                                           xs
+                                         )
+                    :: Gen (Between 1 5 [] String)
+    (Between body) <- arbitrary :: Gen (Between 1 10 [] DocumentBody)
+    pure $ Document (LT.pack <$> hs) body
+ -- shrink (Document hs body) =
+ --   Document <$> shrink hs <*> shrink body
+
+
 data DocumentBody
   = RawText [Text]
   | Expression Expr
   deriving (Show, Eq)
+
+instance Arbitrary DocumentBody where
+  arbitrary = sized $ \n -> do
+    oneof [ RawText <$> (LT.lines <$> arbitrary) `suchThat` (\ls -> length ls > 1
+                                                                 && all (all isAlphaNum)
+                                                                    (LT.unpack <$> ls))
+          , Expression <$> arbitrary
+          ]
+  shrink (Expression e) = Expression <$> shrink e
+  shrink (RawText ts)   = RawText    <$> shrink ts
+
+
+repackDocument :: [DocumentBody] -> [DocumentBody]
+repackDocument ds =
+  foldl go [] ds
+  where
+    go :: [DocumentBody] -> DocumentBody -> [DocumentBody]
+    go acc l =
+      case unsnoc acc of
+        Just (acc', RawText t) ->
+          case l of
+            RawText t' -> acc' ++ [RawText $! t ++ t']
+            _          -> acc  ++ [l]
+        _ -> acc ++ [l]
 
 
 parseDocument :: MonadParse m => LT.Text -> m (Document, Maybe (Text, Text))

@@ -41,6 +41,7 @@ Library
                       , transformers
                       , QuickCheck
                       , quickcheck-combinators
+                      , quickcheck-instances
                       , unordered-containers
 
 Executable ltext
@@ -51,6 +52,8 @@ Executable ltext
   Other-Modules:        Application.Types
                         LText.Expr
                         LText.Type
+                        LText.Document
+                        LText.Eval
   Build-Depends:        base >= 4.8 && < 5
                       , attoparsec
                       , directory
@@ -63,6 +66,7 @@ Executable ltext
                       , text
                       , QuickCheck
                       , quickcheck-combinators
+                      , quickcheck-instances
                       , unordered-containers
 
 Test-Suite spec
@@ -75,6 +79,7 @@ Test-Suite spec
                       , ltext
                       , QuickCheck
                       , quickcheck-combinators
+                      , quickcheck-instances
                       , text
                       , tasty
                       , tasty-quickcheck
