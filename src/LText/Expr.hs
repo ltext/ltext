@@ -50,8 +50,9 @@ instance Arbitrary Expr where
   arbitrary = sized $ \n ->
     if n <= 1
     then var
-    else resize (n-1) (oneof [abs, app, var]) `suchThat` (\e -> sizeOfExpr e <= 10)
+    else resize (n-1) (oneof [abs', app, var]) `suchThat` (\e -> sizeOfExpr e <= 10)
     where
+      sizeOfExpr :: Expr -> Int
       sizeOfExpr (Lit _) = 1
       sizeOfExpr (Var _) = 1
       sizeOfExpr (Abs _ e) = 1 + sizeOfExpr e
@@ -64,7 +65,7 @@ instance Arbitrary Expr where
                   && (isAlphaNum c
                   || isSymbol c
                   || isPunctuation c)
-      abs = sized $ \n -> do
+      abs' = sized $ \n -> do
         (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
                        :: Gen (Between 1 5 [] Char)
         e <- resize (n-1) arbitrary

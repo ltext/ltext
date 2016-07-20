@@ -6,7 +6,6 @@ module LText.Eval where
 
 import LText.Expr
 
-import Data.Text.Lazy                as LT (unlines)
 import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS
 import Data.Monoid
