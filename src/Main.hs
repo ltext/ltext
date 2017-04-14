@@ -15,6 +15,7 @@ import LText.Eval
 import Options.Applicative
 import System.IO
 import System.Exit
+import Data.Monoid ((<>))
 import qualified Data.HashSet        as HS
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as LT
