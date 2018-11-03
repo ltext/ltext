@@ -7,25 +7,25 @@
 
 module LText.Document where
 
-import LText.Expr
+import LText.Expr (Expr (..), MonadParse, MonadPrettyPrint, runParserT, runParse, ppExpr)
 
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy    as LT
 import qualified Data.Text.Lazy.IO as LT
 
-import Data.Char
+import Data.Char (isAlphaNum)
 import Data.List.Extra (unsnoc)
-import Control.Monad
-import Control.Monad.Catch
-import Control.Monad.IO.Class
+import Control.Monad (guard, foldM)
+import Control.Monad.Catch (Exception, MonadThrow, throwM)
+import Control.Monad.IO.Class (liftIO)
 
-import System.IO
-import System.Exit
-import GHC.Generics
+import System.IO (stderr, hPutStrLn)
+import System.Exit (exitFailure)
+import GHC.Generics (Generic)
 
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary (shrink, arbitrary), Gen, suchThat, oneof)
 import Test.QuickCheck.Instances ()
-import Test.QuickCheck.Combinators
+import Test.QuickCheck.Combinators (Between (..))
 
 
 
@@ -36,7 +36,7 @@ data Document = Document
 
 instance Arbitrary Document where
   arbitrary = do
-    (Between hs)   <- arbitrary `suchThat` (all (all isAlphaNum))
+    (Between hs)   <- arbitrary `suchThat` all (all isAlphaNum)
                       :: Gen (Between 1 5 [] (Between 1 5 [] Char))
     (Between body) <- arbitrary :: Gen (Between 1 10 [] DocumentBody)
     pure $ Document (LT.pack . getBetween <$> hs) body
@@ -50,12 +50,13 @@ data DocumentBody
   deriving (Show, Eq)
 
 instance Arbitrary DocumentBody where
-  arbitrary = do
-    oneof [ do (Between ls) <- arbitrary `suchThat` (all (all isAlphaNum))
-                               :: Gen (Between 1 10 [] (Between 1 10 [] Char))
-               pure . RawText $ (LT.pack . getBetween) <$> ls
-          , Expression <$> arbitrary
-          ]
+  arbitrary = oneof
+    [ do
+      (Between ls) <- arbitrary `suchThat` all (all isAlphaNum)
+                      :: Gen (Between 1 10 [] (Between 1 10 [] Char))
+      pure . RawText $ (LT.pack . getBetween) <$> ls
+    , Expression <$> arbitrary
+    ]
   shrink (Expression e) = Expression <$> shrink e
   shrink (RawText ts)   = RawText    <$> shrink ts
 

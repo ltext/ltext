@@ -2,10 +2,10 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 08fdb17e1487a3f64f068edd5ea4053bdf16af8dad9ba3398687b0f7ff6662e3
+-- hash: b32f4646ef5ffdeb7fb560ee9445dcf417388959c3f2fdacfccec9e6ede2e2aa
 
 name:           ltext
-version:        0.1.2.2
+version:        0.1.3
 synopsis:       Parameterized file evaluator
 description:    Please see the README on GitHub at <https://github.com/githubuser/template-dictionary#readme>
 category:       Text
@@ -99,6 +99,8 @@ test-suite template-dictionary-test
     , pretty
     , quickcheck-combinators >=0.0.5
     , quickcheck-instances
+    , tasty
+    , tasty-quickcheck
     , text
     , transformers
     , unordered-containers

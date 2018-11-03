@@ -4,7 +4,7 @@
 
 module LText.Eval where
 
-import LText.Expr
+import LText.Expr (Expr (..))
 
 import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS

@@ -5,9 +5,10 @@
 
 module Application.Types where
 
-import LText.Expr
-import Control.Monad.Reader
-import Control.Monad.Catch
+import LText.Expr (Expr)
+import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
+import Control.Monad.Catch (MonadThrow)
+import Control.Monad.IO.Class (MonadIO)
 import Data.HashSet (HashSet)
 
 
@@ -30,4 +31,4 @@ type MonadApp m =
 type AppM = ReaderT Env IO
 
 runAppM :: Env -> AppM a -> IO a
-runAppM e = flip runReaderT e
+runAppM = flip runReaderT

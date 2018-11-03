@@ -6,27 +6,32 @@
 
 module Main where
 
-import Application.Types
-import LText.Expr
-import LText.Type
-import LText.Document
-import LText.Eval
+import Application.Types (MonadApp, Env (..), rawTerms, delims, topLevelExpr, isTypeQuery, runAppM)
+import LText.Expr (Expr, handleParseError, runParse)
+import LText.Type (ppType, typeOfTopLevel, runTypeCheckM, toTypeEnv, handleTypeError)
+import LText.Document (fetchDocument, rawDocument, printDocument, toDocument, handlePrintError)
+import LText.Eval (substitute, freeVars, evaluate)
 
 import Options.Applicative
-import System.IO
-import System.Exit
+  ( Parser, ParserInfo, execParser, header, progDesc, fullDesc, helper, info, help, metavar, long
+  , strOption, optional, short, many, switch, str, argument
+  )
+import System.IO (hPutStrLn, stderr)
+import System.Exit (exitSuccess)
 import Data.Monoid ((<>))
 import qualified Data.HashSet        as HS
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as LT
 import qualified Data.Text.Lazy.IO   as LT
-import Control.Monad.Reader
-import Control.Monad.Catch
+import Control.Monad (foldM)
+import Control.Monad.Reader (ask)
+import Control.Monad.Catch (handle)
+import Control.Monad.IO.Class (liftIO)
 
 
 
 versionString :: String
-versionString = "0.1.0"
+versionString = "0.1.3"
 
 
 data Opts = Opts

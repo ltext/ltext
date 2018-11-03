@@ -6,24 +6,26 @@
 
 module LText.Type where
 
-import Application.Types
-import LText.Expr
-import LText.Document
+import Application.Types (Env (..))
+import LText.Expr (Expr (..))
+import LText.Document (fetchDocument)
 
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS
 import Data.Maybe (fromMaybe)
-import Text.PrettyPrint hiding ((<>))
-import Control.Monad.State
-import Control.Monad.Reader
-import Control.Monad.Catch
+import Text.PrettyPrint (text, (<+>), parens, render)
+import Control.Monad (foldM)
+import Control.Monad.State (StateT, MonadState, modify', get, put, evalStateT)
+import Control.Monad.Reader (ReaderT (runReaderT), MonadReader, ask)
+import Control.Monad.Catch (Exception, MonadThrow, throwM)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
-import System.Directory
-import System.IO
-import System.Exit
-import GHC.Generics
+import System.Directory (doesFileExist)
+import System.IO (hPutStrLn, stderr)
+import System.Exit (exitFailure)
+import GHC.Generics (Generic)
 
 
 

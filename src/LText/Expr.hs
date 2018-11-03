@@ -17,21 +17,22 @@ import Prelude hiding (lex)
 import Data.Attoparsec.Text
 import Data.Text as T (Text)
 import qualified Data.Text.Lazy as LT
-import Data.Char
-import Text.PrettyPrint hiding (char)
+import Data.Char (isPunctuation, isSymbol, isAlphaNum)
+import Text.PrettyPrint (Doc, parens, text, (<+>), nest, ($$), render)
 import qualified Text.PrettyPrint as PP
 
-import Control.Applicative
-import Control.Monad
-import Control.Monad.Catch
-import Control.Monad.State
+import Control.Applicative ((<|>), many)
+import Control.Monad (void)
+import Control.Monad.Catch (Exception, MonadThrow, throwM)
+import Control.Monad.State (StateT, MonadState, put, get, evalStateT)
+import Control.Monad.IO.Class (MonadIO)
 
-import GHC.Generics
-import System.IO
-import System.Exit
+import GHC.Generics (Generic)
+import System.IO (stderr, hPutStrLn)
+import System.Exit (exitFailure)
 
-import Test.QuickCheck
-import Test.QuickCheck.Combinators
+import Test.QuickCheck (Arbitrary (arbitrary, shrink), Gen, suchThat, sized, resize, oneof)
+import Test.QuickCheck.Combinators (Between (..))
 
 
 
