@@ -8,7 +8,6 @@ import LText.Expr
 
 import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS
-import Data.Monoid
 
 
 evaluate :: Expr -> Expr

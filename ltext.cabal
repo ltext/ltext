@@ -1,89 +1,105 @@
-Name:                   ltext
-Version:                0.1.2.2
-Author:                 Athan Clark <athan.clark@gmail.com>
-Maintainer:             Athan Clark <athan.clark@gmail.com>
-License:                BSD3
-License-File:           LICENSE
-Synopsis:               Parameterized file evaluator
-Category:               Text, Tools, Utils, Filesystem
-Description:
-  λtext is a general-purpose templating utility for text files.
-  .
-  Turn plaintext files into lambdas -
-  function application then becomes concatenation.
-  .
-  Please see the <https://github.com/ltext/ltext github page> for more details.
-  .
-  All credits go to Martin Grabmueller's
-  <http://hackage.haskell.org/package/AlgorithmW AlgorithmW>
-  package for the type inference algorithm used in λtext.
-Cabal-Version:          >= 1.10
-Build-Type:             Simple
+-- This file has been generated from package.yaml by hpack version 0.21.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 08fdb17e1487a3f64f068edd5ea4053bdf16af8dad9ba3398687b0f7ff6662e3
 
+name:           ltext
+version:        0.1.2.2
+synopsis:       Parameterized file evaluator
+description:    Please see the README on GitHub at <https://github.com/githubuser/template-dictionary#readme>
+category:       Text
+homepage:       https://github.com/ltext/ltext#readme
+bug-reports:    https://github.com/ltext/ltext/issues
+author:         Athan Clark
+maintainer:     athan.clark@localcooking.com
+copyright:      2018 (c) Local Cooking Inc.
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
 
-Library
-  Default-Language:     Haskell2010
-  HS-Source-Dirs:       src
-  GHC-Options:          -Wall
-  Exposed-Modules:      Application.Types
-                        LText.Expr
-                        LText.Eval
-                        LText.Type
-                        LText.Document
-  Build-Depends:        base >= 4.8 && < 5
-                      , attoparsec
-                      , directory
-                      , exceptions
-                      , extra
-                      , mtl
-                      , pretty
-                      , text
-                      , transformers
-                      , QuickCheck
-                      , quickcheck-combinators >= 0.0.1
-                      , quickcheck-instances
-                      , unordered-containers
+extra-source-files:
+    README.md
 
-Executable ltext
-  Default-Language:     Haskell2010
-  HS-Source-Dirs:       src
-  GHC-Options:          -Wall -threaded
-  Main-Is:              Main.hs
-  Other-Modules:        Application.Types
-                        LText.Expr
-                        LText.Type
-                        LText.Document
-                        LText.Eval
-  Build-Depends:        base >= 4.8 && < 5
-                      , attoparsec
-                      , directory
-                      , exceptions
-                      , extra
-                      , mtl
-                      , optparse-applicative
-                      , pretty
-                      , transformers
-                      , text
-                      , QuickCheck
-                      , quickcheck-combinators
-                      , quickcheck-instances
-                      , unordered-containers
+source-repository head
+  type: git
+  location: https://github.com/ltext/ltext
 
-Test-Suite spec
-  Type:                 exitcode-stdio-1.0
-  Default-Language:     Haskell2010
-  Hs-Source-Dirs:       test
-  Ghc-Options:          -Wall
-  Main-Is:              Main.hs
-  Build-Depends:        base
-                      , ltext
-                      , QuickCheck
-                      , quickcheck-combinators
-                      , quickcheck-instances
-                      , text
-                      , tasty
-                      , tasty-quickcheck
+library
+  exposed-modules:
+      Application.Types
+      LText.Document
+      LText.Eval
+      LText.Expr
+      LText.Type
+  other-modules:
+      Paths_ltext
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      QuickCheck
+    , attoparsec
+    , base >=4.11 && <5
+    , directory
+    , exceptions
+    , extra
+    , mtl
+    , pretty
+    , quickcheck-combinators >=0.0.5
+    , quickcheck-instances
+    , text
+    , transformers
+    , unordered-containers
+  default-language: Haskell2010
 
-Source-Repository head
-  Type:                 git
-  Location:             https://github.com/ltext/ltext.git
+executable ltext
+  main-is: Main.hs
+  other-modules:
+      Paths_ltext
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , attoparsec
+    , base
+    , directory
+    , exceptions
+    , extra
+    , ltext
+    , mtl
+    , optparse-applicative
+    , pretty
+    , quickcheck-combinators >=0.0.5
+    , quickcheck-instances
+    , text
+    , transformers
+    , unordered-containers
+  default-language: Haskell2010
+
+test-suite template-dictionary-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_ltext
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , attoparsec
+    , base
+    , directory
+    , exceptions
+    , extra
+    , ltext
+    , mtl
+    , pretty
+    , quickcheck-combinators >=0.0.5
+    , quickcheck-instances
+    , text
+    , transformers
+    , unordered-containers
+  default-language: Haskell2010

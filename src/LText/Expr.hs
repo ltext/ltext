@@ -102,7 +102,7 @@ ppExpr e = render <$> go e
       case e' of
         Abs x e'' -> do
           e''' <- go e''
-          pure $ PP.char '\\' <> text x <+> text "->"
+          pure $ (PP.char '\\' PP.<> text x) <+> text "->"
                               $$ nest (5 + length x) e'''
         App e1 e2 ->
           let e1Hat = case e1 of

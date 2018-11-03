@@ -95,3 +95,8 @@ with the `--raw` argument listing the file:
 ```bash
 $> ltext "foo bar" --raw "bar"
 ```
+
+
+# Credits
+
+All credits go to Martin Grabmueller's [AlgorithmW](https://hackage.haskell.org/package/AlgorithmW) package for the type inference algorithm used in λtext.

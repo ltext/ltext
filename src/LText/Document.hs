@@ -13,7 +13,6 @@ import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy    as LT
 import qualified Data.Text.Lazy.IO as LT
 
-import Data.Monoid
 import Data.Char
 import Data.List.Extra (unsnoc)
 import Control.Monad

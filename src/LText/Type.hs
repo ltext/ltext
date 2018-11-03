@@ -15,7 +15,6 @@ import qualified Data.HashMap.Strict as HM
 import           Data.HashSet        (HashSet)
 import qualified Data.HashSet        as HS
 import Data.Maybe (fromMaybe)
-import Data.Monoid
 import Text.PrettyPrint hiding ((<>))
 import Control.Monad.State
 import Control.Monad.Reader
@@ -112,9 +111,12 @@ newtype Subst = Subst
   { getSubst :: HashMap String Type
   } deriving (Show, Eq)
 
+instance Semigroup Subst where
+  (Subst f) <> (Subst g) = Subst $ fmap (applySubst (Subst f)) g <> f
+
 instance Monoid Subst where
   mempty  = Subst mempty
-  mappend (Subst f) (Subst g) = Subst $ fmap (applySubst (Subst f)) g <> f
+  mappend = (<>)
 
 
 class IsType t where
