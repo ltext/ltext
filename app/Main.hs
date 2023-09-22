@@ -18,7 +18,6 @@ import Options.Applicative
   )
 import System.IO (hPutStrLn, stderr)
 import System.Exit (exitSuccess)
-import Data.Monoid ((<>))
 import qualified Data.HashSet        as HS
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as LT

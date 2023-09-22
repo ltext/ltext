@@ -5,15 +5,33 @@
 
 packages:
 - completed:
-    hackage: quickcheck-combinators-0.0.5@sha256:e638413049060198f0814dccf87d916ca16a4a9f586ad3b343fac7cc0ea99fda,1167
+    hackage: quickcheck-combinators-0.0.6@sha256:49a68fd685edbb7d5828c2fde3ebccfbd7e65af0aaf3e04269840deee631b618,1261
     pantry-tree:
-      size: 341
-      sha256: 7a3644495fe4375ddd3f15827f3cd5e366f4be208e27233ecdf3f4ff666de14e
+      sha256: f4f8a4afb3cb86c0c154140fa5fd235c681469387f77db5b7d286b9b38541670
+      size: 289
   original:
-    hackage: quickcheck-combinators-0.0.5
+    hackage: quickcheck-combinators-0.0.6
+- completed:
+    hackage: unfoldable-restricted-0.0.3@sha256:d03506062c22b177bbbfd052f2d1a0ca1af03c321967900fa133378f19edb202,973
+    pantry-tree:
+      sha256: 610182ba67fb6debc6e8c6bdb34ac7853711e16d3799c5743b11efc7554e475f
+      size: 238
+  original:
+    hackage: unfoldable-restricted-0.0.3
+- completed:
+    commit: c4f9b6cfbc129e5a7687684cde259120d1f96970
+    git: https://github.com/athanclark/unfoldable.git
+    name: unfoldable
+    pantry-tree:
+      sha256: 213aed3ec308565c28b174f3bba41de7964e2967748bb6a2a7a6c6ea8c65ff9b
+      size: 874
+    version: 1.0.1
+  original:
+    commit: c4f9b6cfbc129e5a7687684cde259120d1f96970
+    git: https://github.com/athanclark/unfoldable.git
 snapshots:
 - completed:
-    size: 499178
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/12/0.yaml
-    sha256: 3e9a7b96708cd9196ce7e5396143725097a71f2e9ca8dc19f03f5082642bc1b5
-  original: lts-12.0
+    sha256: 9313df78f49519315342f4c51ffc5da12659d3735f8ac3c54a1fb98ff874474e
+    size: 640036
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/12.yaml
+  original: lts-21.12

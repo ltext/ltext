@@ -16,7 +16,7 @@
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
 # resolver: nightly-2016-06-30
-resolver: lts-12.5
+resolver: lts-21.12
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -48,9 +48,10 @@ packages:
 extra-deps:
   # - HFuse-0.2.4.5
   # - one-liner-0.8.1
-  - quickcheck-combinators-0.0.5
-  # - unfoldable-restricted-0.0.2
-  # - unfoldable-0.9.2
+  - quickcheck-combinators-0.0.6
+  - unfoldable-restricted-0.0.3
+  - git: https://github.com/athanclark/unfoldable.git
+    commit: c4f9b6cfbc129e5a7687684cde259120d1f96970
   # - unit-constraint-0.0.0
 
 # Override default flag values for local packages and extra-deps

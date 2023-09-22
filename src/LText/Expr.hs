@@ -116,6 +116,10 @@ ppExpr e = render <$> go e
           in  (<+>) <$> e1Hat <*> e2Hat
         Var x ->
           pure $ text x
+        Lit x ->
+          pure . text . LT.unpack $ LT.unlines x
+        Concat x y ->
+          (<+>) <$> go x <*> go y
 
 
 data ScopeUse = Fresh | Stale Expr

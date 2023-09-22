@@ -1,27 +1,26 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.2.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 82a436cf3225e044a040227bca12d20dfb4175fdf0190b40256cc9d9957e75fe
+-- hash: 1090956913f2da864468b5caf3fd548bad62758c4de492cb1bd81843f6e556a2
 
 name:           ltext
-version:        0.1.3
+version:        0.1.4
 synopsis:       Parameterized file evaluator
-description:    Please see the README on GitHub at <https://github.com/githubuser/template-dictionary#readme>
+description:    Please see the README on GitHub at <https://github.com/ltext/ltext#README>
 category:       Text
 homepage:       https://github.com/ltext/ltext#readme
 bug-reports:    https://github.com/ltext/ltext/issues
 author:         Athan Clark
-maintainer:     athan.clark@localcooking.com
-copyright:      2018 (c) Local Cooking Inc.
+maintainer:     athan.clark@gmail.com
+copyright:      2023 (c) Athan Clark
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
-    ChangeLog.md
 
 source-repository head
   type: git
