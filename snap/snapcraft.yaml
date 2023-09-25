@@ -9,9 +9,16 @@ description: |
 grade: devel # must be 'stable' to release into candidate/stable channels
 confinement: devmode # use 'strict' once you have the right plugs and slots
 
+apps:
+  part-os-release:
+    command: bin/ltext
+
 parts:
-  ltext:
-    plugin: nil
+  part-os-release:
+    plugin: dump
+    source: .stack-work/dist/x86_64-linux-tinfo6/Cabal-3.8.1.0/build/ltext/
+    organize:
+      ltext: bin/
     # See 'snapcraft plugins'
     stage-packages:
       - libc-bin
