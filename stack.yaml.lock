@@ -19,15 +19,15 @@ packages:
   original:
     hackage: unfoldable-restricted-0.0.3
 - completed:
-    commit: c4f9b6cfbc129e5a7687684cde259120d1f96970
+    commit: df65d12df714e8ef45be4dd804bd71f84a394d65
     git: https://github.com/athanclark/unfoldable.git
     name: unfoldable
     pantry-tree:
-      sha256: 213aed3ec308565c28b174f3bba41de7964e2967748bb6a2a7a6c6ea8c65ff9b
+      sha256: 135b3031bdfbe2b56cc38b20c8f34b8e877cb49f0c8626a83fef90ab8c18a4ec
       size: 874
     version: 1.0.1
   original:
-    commit: c4f9b6cfbc129e5a7687684cde259120d1f96970
+    commit: df65d12df714e8ef45be4dd804bd71f84a394d65
     git: https://github.com/athanclark/unfoldable.git
 snapshots:
 - completed:

@@ -51,7 +51,7 @@ extra-deps:
   - quickcheck-combinators-0.0.6
   - unfoldable-restricted-0.0.3
   - git: https://github.com/athanclark/unfoldable.git
-    commit: c4f9b6cfbc129e5a7687684cde259120d1f96970
+    commit: df65d12df714e8ef45be4dd804bd71f84a394d65
   # - unit-constraint-0.0.0
 
 # Override default flag values for local packages and extra-deps
