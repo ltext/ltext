@@ -30,4 +30,5 @@ parts:
     stage-packages:
       - libc-bin
       - libgmp10
+      - libcurl4
       - curl
