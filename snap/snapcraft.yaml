@@ -19,10 +19,16 @@ apps:
 parts:
   ltext:
     plugin: dump
-    source: .stack-work/dist/x86_64-linux-tinfo6/Cabal-3.8.1.0/build/ltext/
+    source: .stack-work/dist/*/*/build/ltext/
     organize:
       ltext: bin/
     # See 'snapcraft plugins'
+    override-build: |
+      curl -sSL https://get.haskellstack.org/ | sh 
+      which stack
+      stack --version
+      stack build
     stage-packages:
       - libc-bin
       - libgmp10
+      - curl
