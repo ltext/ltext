@@ -14,7 +14,7 @@ confinement: strict # use 'strict' once you have the right plugs and slots
 
 apps:
   ltext:
-    command: bin/ltext
+    command: ltext
 
 parts:
   ltext:
@@ -27,8 +27,9 @@ parts:
       which stack
       stack --version
       stack install
+    build-packages:
+      - curl
+      - libcurl4
     stage-packages:
       - libc-bin
       - libgmp10
-      - libcurl4
-      - curl
