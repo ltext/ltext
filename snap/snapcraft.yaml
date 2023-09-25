@@ -10,11 +10,11 @@ grade: devel # must be 'stable' to release into candidate/stable channels
 confinement: devmode # use 'strict' once you have the right plugs and slots
 
 apps:
-  part-os-release:
+  ltext:
     command: bin/ltext
 
 parts:
-  part-os-release:
+  ltext:
     plugin: dump
     source: .stack-work/dist/x86_64-linux-tinfo6/Cabal-3.8.1.0/build/ltext/
     organize:
