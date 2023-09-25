@@ -18,16 +18,15 @@ apps:
 
 parts:
   ltext:
-    plugin: dump
-    source: .stack-work/dist/*/*/build/ltext/
-    organize:
-      ltext: bin/
-    # See 'snapcraft plugins'
+    plugin: nil
+    source: .
+    build-environment:
+      - PATH: "/root/.local/bin:$PATH"
     override-build: |
       curl -sSL https://get.haskellstack.org/ | sh 
       which stack
       stack --version
-      stack build
+      stack install
     stage-packages:
       - libc-bin
       - libgmp10
