@@ -12,7 +12,7 @@ description: |
   and let λtext do the pasting. 
 contact: 'athan.clark@gmail.com'
 issues: 'https://github.com/ltext/ltext/issues'
-image: ltext.png
+icon: ltext.png
 license: BSD-3-Clause
 type: app
 website: https://ltext.github.io
