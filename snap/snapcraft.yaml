@@ -17,15 +17,11 @@ license: BSD-3-Clause
 type: app
 website: https://ltext.github.io
 grade: devel # must be 'stable' to release into candidate/stable channels
-confinement: strict # use 'strict' once you have the right plugs and slots
+confinement: classic # use 'strict' once you have the right plugs and slots
 
 apps:
   ltext:
     command: bin/ltext
-    plugs:
-      - home
-      - removable-media
-      - personal-files
 
 parts:
   ltext:
