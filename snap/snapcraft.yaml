@@ -22,6 +22,10 @@ confinement: strict # use 'strict' once you have the right plugs and slots
 apps:
   ltext:
     command: bin/ltext
+    plugs:
+      - home
+      - removable-media
+      - personal-files
 
 parts:
   ltext:
