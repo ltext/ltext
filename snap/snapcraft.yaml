@@ -23,7 +23,8 @@ apps:
   ltext:
     command: bin/ltext
     plugs:
-      - system-backup
+      - home
+      - removable-media
 
 parts:
   ltext:
