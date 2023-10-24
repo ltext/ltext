@@ -25,6 +25,7 @@ apps:
     plugs:
       - home
       - removable-media
+      - system-backup
 
 parts:
   ltext:
