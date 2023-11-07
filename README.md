@@ -21,6 +21,14 @@ $> stack install ltext
 This should install in one pass; all the non-stackage dependencies are included
 in `stack.yaml`.
 
+### Using Nix
+
+You can build with nix with the following command:
+
+```bash
+nix-build -A ltext.components.exes.ltext
+```
+
 ## Usage
 
 ```bash

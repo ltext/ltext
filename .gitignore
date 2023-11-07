@@ -15,3 +15,5 @@ cabal.sandbox.config
 
 .stack-work/
 *.snap
+result/
+result
