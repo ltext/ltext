@@ -1,19 +1,15 @@
 name:                ltext
-version:             0.1.4
+version:             0.1.5
 github:              "ltext/ltext"
 license:             BSD3
 author:              "Athan Clark"
 maintainer:          "athan.clark@gmail.com"
-copyright:           "2023 (c) Athan Clark"
+copyright:           "2014-2024 (c) Athan Clark"
 category:            Text
 synopsis:            "Parameterized file evaluator"
 
 extra-source-files:
 - README.md
-
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
@@ -31,7 +27,6 @@ dependencies:
 - text
 - transformers
 - QuickCheck
-- quickcheck-combinators >= 0.0.5
 - quickcheck-instances
 - unordered-containers
 

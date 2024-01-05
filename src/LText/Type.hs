@@ -231,8 +231,8 @@ data ExprType = TopLevel | DocLevel
 typeInfer :: MonadTypecheck m => ExprType -> Expr -> m (Subst, Type)
 typeInfer mode' e =
   case e of
-    Lit _ -> pure (mempty, Text)
-    Concat e1 e2 -> do
+    Lit _ _ _ -> pure (mempty, Text)
+    Concat e1 e2 _ _ -> do
       -- FIXME: Probably wasteful :\
       (s1,t1) <- typeInfer mode' e1
       (s2,t2) <- typeInfer mode' e2

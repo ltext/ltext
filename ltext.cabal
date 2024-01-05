@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1090956913f2da864468b5caf3fd548bad62758c4de492cb1bd81843f6e556a2
+-- hash: 4bd917f75d9cc9a16cbcdbca3dae324025455cb39679cce77cd3b1133f0dfc78
 
 name:           ltext
-version:        0.1.4
+version:        0.1.5
 synopsis:       Parameterized file evaluator
 description:    Please see the README on GitHub at <https://github.com/ltext/ltext#README>
 category:       Text
@@ -15,7 +15,7 @@ homepage:       https://github.com/ltext/ltext#readme
 bug-reports:    https://github.com/ltext/ltext/issues
 author:         Athan Clark
 maintainer:     athan.clark@gmail.com
-copyright:      2023 (c) Athan Clark
+copyright:      2014-2024 (c) Athan Clark
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -47,7 +47,6 @@ library
     , extra
     , mtl
     , pretty
-    , quickcheck-combinators >=0.0.5
     , quickcheck-instances
     , text
     , transformers
@@ -72,7 +71,6 @@ executable ltext
     , mtl
     , optparse-applicative
     , pretty
-    , quickcheck-combinators >=0.0.5
     , quickcheck-instances
     , text
     , transformers
@@ -97,7 +95,6 @@ test-suite template-dictionary-test
     , ltext
     , mtl
     , pretty
-    , quickcheck-combinators >=0.0.5
     , quickcheck-instances
     , tasty
     , tasty-quickcheck

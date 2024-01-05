@@ -31,8 +31,7 @@ import GHC.Generics (Generic)
 import System.IO (stderr, hPutStrLn)
 import System.Exit (exitFailure)
 
-import Test.QuickCheck (Arbitrary (arbitrary, shrink), Gen, suchThat, sized, resize, oneof)
-import Test.QuickCheck.Combinators (Between (..))
+import Test.QuickCheck (Arbitrary (arbitrary, shrink), suchThat, sized, resize, oneof, listOf1)
 
 
 
@@ -40,8 +39,8 @@ data Expr
   = Abs String Expr
   | App Expr Expr
   | Var String
-  | Lit [LT.Text]
-  | Concat Expr Expr
+  | Lit { litContent :: [LT.Text], litSource :: FilePath, litInError :: Bool }
+  | Concat { concatLeft :: Expr, concatRight :: Expr, concatSource :: FilePath, concatInError :: Bool }
   deriving (Show, Eq)
 
 
@@ -54,21 +53,22 @@ instance Arbitrary Expr where
     else resize (n-1) (oneof [abs', app, var]) `suchThat` (\e -> sizeOfExpr e <= 10)
     where
       sizeOfExpr :: Expr -> Int
-      sizeOfExpr (Lit _) = 1
+      sizeOfExpr (Lit _ _ _) = 1
       sizeOfExpr (Var _) = 1
       sizeOfExpr (Abs _ e) = 1 + sizeOfExpr e
       sizeOfExpr (App e1 e2) = 1 + sizeOfExpr e1 + sizeOfExpr e2
-      sizeOfExpr (Concat e1 e2) = 1 + sizeOfExpr e1 + sizeOfExpr e2
+      sizeOfExpr (Concat e1 e2 _ _) = 1 + sizeOfExpr e1 + sizeOfExpr e2
 
-      isFilename c = c /= '\\'
-                  && c /= '('
-                  && c /= ')'
-                  && (isAlphaNum c
-                  || isSymbol c
-                  || isPunctuation c)
+      term = listOf1 (arbitrary `suchThat` isFilename)
+        where
+          isFilename c = c /= '\\'
+                      && c /= '('
+                      && c /= ')'
+                      && (isAlphaNum c
+                      || isSymbol c
+                      || isPunctuation c)
       abs' = sized $ \n -> do
-        (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
-                       :: Gen (Between 1 5 [] Char)
+        x <- term
         e <- resize (n-1) arbitrary
         pure $ Abs x e
       app = sized $ \n -> do
@@ -76,15 +76,14 @@ instance Arbitrary Expr where
         e2 <- resize (n-1) arbitrary
         pure $ App e1 e2
       var = do
-        (Between x) <- arbitrary `suchThat` (\(Between x') -> all isFilename x')
-                       :: Gen (Between 1 5 [] Char)
+        x <- term
         pure $ Var x
 
-  shrink (Lit _)        = []
+  shrink (Lit _ _ _)        = []
   shrink (Var _)        = []
   shrink (Abs _ e)      = [e]
   shrink (App e1 e2)    = [e1,e2]
-  shrink (Concat e1 e2) = [e1,e2]
+  shrink (Concat e1 e2 _ _) = [e1,e2]
 
 
 
@@ -116,9 +115,13 @@ ppExpr e = render <$> go e
           in  (<+>) <$> e1Hat <*> e2Hat
         Var x ->
           pure $ text x
-        Lit x ->
+        Lit _ source True ->
+          pure . text $ "[text from \"" ++ source ++ "\"]"
+        Lit x _ _ ->
           pure . text . LT.unpack $ LT.unlines x
-        Concat x y ->
+        Concat _ _ source True ->
+          pure . text $ "[text from \"" ++ source ++ "\"]"
+        Concat x y _ _ ->
           (<+>) <$> go x <*> go y
 
 
