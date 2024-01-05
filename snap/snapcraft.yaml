@@ -1,7 +1,7 @@
 name: ltext # you probably want to 'snapcraft register <name>'
 base: core22 # the base snap is the execution environment for this snap
 architectures: [amd64, arm64]
-version: '0.1.4' # just for humans, typically '1.2+git' or '1.3.2'
+version: '0.1.5' # just for humans, typically '1.2+git' or '1.3.2'
 title: λtext
 summary: general-purpose text-file templating utility # 79 char long summary
 description: |
