@@ -170,10 +170,10 @@ fromDocument :: FilePath -- ^ Name of source file
 fromDocument source Document{..} =
   foldr (Abs . LT.unpack) (go documentBody) documentArity
   where
-    go (RawText t:ts)    = Concat (Lit t source False) (go ts) source False
-    go (Expression e:ts) = Concat e (go ts) source False
     go [RawText t]       = Lit t source False
     go [Expression e]    = e
+    go (RawText t:ts)    = Concat (Lit t source False) (go ts) source False
+    go (Expression e:ts) = Concat e (go ts) source False
     go []                = Lit [] source False
 
 
