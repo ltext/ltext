@@ -1,1 +1,1 @@
-[Parse Error] An arrow alone was found inside a function body, with trailing token stream: [Arrow,Ident "bar"]
+[Parse Error] Found an arrow without a lambda, at: -> bar

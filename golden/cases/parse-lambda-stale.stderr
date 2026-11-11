@@ -1,1 +1,1 @@
-[Parse Error] A lambda is inside a stale scope, with trailing token stream: [Lambda,Ident "x",Arrow,Ident "x"] and parse state Var "foo"
+[Parse Error] A lambda used as an argument must be in parentheses: foo (\x -> x)

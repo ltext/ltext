@@ -1,1 +1,1 @@
-[Parse Error] Brackets are inside a lambda declaration, with trailing token stream: [Bracketed {getBracketed = [Ident "x"]},Arrow,Ident "x"]
+[Parse Error] Lambda parameters must be names, but found brackets at: (x) -> x

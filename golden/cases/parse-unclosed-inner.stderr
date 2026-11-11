@@ -1,1 +1,1 @@
-[Print Error] Can't render a document with arity without explicit --left and --right delimiters
+[Parse Error] Unclosed parenthesis at column 5

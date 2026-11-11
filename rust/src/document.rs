@@ -40,8 +40,22 @@ fn delimited(line: &str) -> Option<(&str, Vec<&str>, &str)> {
     Some((ws[0], ws[1..ws.len() - 1].to_vec(), ws[ws.len() - 1]))
 }
 
-/// Parse a document, returning its left and right delimiters if it has a header.
-pub fn parse_document(text: &str) -> Result<(Document, Option<(String, String)>), ParseError> {
+/// A document's left and right delimiters.
+pub type Delims = (String, String);
+
+/// A parse error in an expression line of a document.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DocParseError {
+    /// 1-based line number.
+    pub line: usize,
+    /// The expression text between the delimiters.
+    pub expr: String,
+    pub err: ParseError,
+}
+
+/// Parse a document, returning its left and right delimiters if it has a
+/// header.
+pub fn parse_document(text: &str) -> Result<(Document, Option<Delims>), DocParseError> {
     let all = lines(text);
     let Some((head, body)) = all.split_first() else {
         return Ok((
@@ -64,10 +78,17 @@ pub fn parse_document(text: &str) -> Result<(Document, Option<(String, String)>)
     };
 
     let mut out: Vec<DocumentBody> = Vec::new();
-    for line in body {
+    for (i, line) in body.iter().enumerate() {
         match delimited(line) {
             Some((l2, inner, r2)) if l2 == l && r2 == r => {
-                out.push(DocumentBody::Expression(parse_expr(&unwords(&inner))?));
+                out.push(DocumentBody::Expression({
+                    let src = unwords(&inner);
+                    parse_expr(&src).map_err(|err| DocParseError {
+                        line: i + 2,
+                        expr: src.clone(),
+                        err,
+                    })?
+                }));
             }
             _ => match out.last_mut() {
                 Some(DocumentBody::RawText(t)) => t.push(line.clone()),
@@ -219,7 +240,8 @@ fn read_file(path: &str) -> Result<String, Error> {
 
 /// Read and parse a document file into an expression.
 pub fn fetch_document(path: &str) -> Result<Expr, Error> {
-    let (doc, _) = parse_document(&read_file(path)?)?;
+    let (doc, _) = parse_document(&read_file(path)?)
+        .map_err(|err| Error::DocParse(path.to_owned(), Box::new(err)))?;
     Ok(from_document(path, &doc))
 }
 

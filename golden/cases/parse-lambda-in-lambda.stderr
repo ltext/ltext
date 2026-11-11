@@ -1,1 +1,1 @@
-[Parse Error] A lambda is inside a lambda declaration, with trailing token stream: [Lambda,Ident "y",Arrow,Ident "x"]
+[Parse Error] A lambda can't start inside another lambda's parameters, at: \y -> x
