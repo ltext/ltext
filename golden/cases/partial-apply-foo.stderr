@@ -1,8 +1,0 @@
-[Print Error] Can't print textual data while inside an expression: 
-
-\x -> 
-asdf
-
- (\x -> [text from "foo"]) x
-
-...cannot be rendered to a file.
