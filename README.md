@@ -12,22 +12,41 @@ prenex polymorphic type system. See the [github.io page](http://ltext.github.io/
 
 ## Building
 
+λtext is tested with GHC 9.6 through 9.14.
+
+### Using Cabal
+
 ```bash
-$> git clone git@github.com/ltext/ltext
+$> git clone https://github.com/ltext/ltext
 $> cd ltext
-$> stack install ltext
+$> cabal install
 ```
 
-This should install in one pass; all the non-stackage dependencies are included
-in `stack.yaml`.
+### Using Stack
+
+```bash
+$> stack install
+```
+
+The Stack build uses the snapshot pinned in `stack.yaml` (Stackage LTS 24, GHC 9.10).
 
 ### Using Nix
 
-You can build with nix with the following command:
+With flakes enabled:
 
 ```bash
-nix-build -A ltext.components.exes.ltext
+$> nix build          # binary at ./result/bin/ltext
+$> nix run . -- --help
+$> nix develop        # shell with GHC, cabal, hpack and HLS
 ```
+
+Without flakes, `nix-build` builds the executable from your `<nixpkgs>` channel.
+
+### Hacking
+
+`package.yaml` is the source of truth; `ltext.cabal` is generated from it by
+[hpack](https://github.com/sol/hpack) (Stack does this automatically). After
+changing `package.yaml` while using Cabal, run `hpack` to regenerate it.
 
 ## Usage
 

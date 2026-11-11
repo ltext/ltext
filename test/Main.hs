@@ -7,7 +7,7 @@ import LText.Type
 
 import Test.Tasty
 import Test.Tasty.QuickCheck as QC
-import Test.QuickCheck.Instances
+import Test.QuickCheck.Instances ()
 
 import Data.Text      as T  hiding (length, all)
 import Data.Text.Lazy as LT hiding (length, all)
@@ -60,8 +60,8 @@ instance Arbitrary Delims where
 
 
 printParseIsoDoc :: (Document, Delims) -> Property
-printParseIsoDoc (Document head body, Delims lr) =
-  let d = Document head $ repackDocument body
+printParseIsoDoc (Document arity body, Delims lr) =
+  let d = Document arity $ repackDocument body
   in  ioProperty $ do
         txt       <- printDocument (Just lr) d
         (d',mlr') <- runParserT $ parseDocument txt
