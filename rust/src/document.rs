@@ -84,7 +84,8 @@ pub fn parse_document(text: &str) -> Result<(Document, Option<(String, String)>)
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrintError {
-    /// Text inside an `Abs` or `App`, which can't be written to a file.
+    /// An expression line that contains text, which can't be written to a
+    /// file. Holds the offending expression, with its text marked.
     ConcatExprText(Expr),
     NoExplicitDelimiters,
 }
@@ -94,8 +95,8 @@ impl fmt::Display for PrintError {
         match self {
             PrintError::ConcatExprText(e) => write!(
                 f,
-                "[Print Error] Can't print textual data while inside an expression: \n\n{}\n\n...cannot be rendered to a file.",
-                pp_expr(&decorate_unprintable(e))
+                "[Print Error] Can't print textual data while inside an expression:\n\n    {}\n\n...cannot be rendered to a file.",
+                pp_expr(e)
             ),
             PrintError::NoExplicitDelimiters => write!(
                 f,
@@ -155,94 +156,60 @@ pub fn from_document(source: &str, doc: &Document) -> Expr {
         .fold(go(source, &doc.body), |e, n| Expr::abs(n.clone(), e))
 }
 
-#[derive(Clone, Copy)]
-enum Mode {
-    Top,
-    InsideConcat,
-    InsideExpr,
-}
-
-/// Mark text that sits inside an expression, so it can be reported.
-pub fn decorate_unprintable(e: &Expr) -> Expr {
-    go(Mode::Top, e)
-}
-
-fn go(mode: Mode, e: &Expr) -> Expr {
-    match (mode, e) {
-        (
-            Mode::Top | Mode::InsideConcat,
-            Expr::Concat {
-                left,
-                right,
-                source,
-                ..
-            },
-        ) => Expr::concat(
-            go(Mode::InsideConcat, left),
-            go(Mode::InsideConcat, right),
-            source.clone(),
-            false,
-        ),
-        (Mode::Top, Expr::Abs(n, b)) => Expr::abs(n.clone(), go(Mode::Top, b)),
-        (Mode::Top, Expr::App(f, a)) => Expr::app(go(Mode::Top, f), go(Mode::Top, a)),
-        (Mode::InsideConcat | Mode::InsideExpr, Expr::Abs(n, b)) => {
-            Expr::abs(n.clone(), go(Mode::InsideExpr, b))
-        }
-        (Mode::InsideConcat | Mode::InsideExpr, Expr::App(f, a)) => {
-            Expr::app(go(Mode::InsideExpr, f), go(Mode::InsideExpr, a))
-        }
-        (
-            Mode::InsideExpr,
-            Expr::Concat {
-                left,
-                right,
-                source,
-                ..
-            },
-        ) => Expr::concat((**left).clone(), (**right).clone(), source.clone(), true),
-        (
-            Mode::InsideExpr,
-            Expr::Lit {
-                content, source, ..
-            },
-        ) => Expr::lit(content.clone(), source.clone(), true),
-        _ => e.clone(),
-    }
-}
-
-pub fn is_any_unprintable(e: &Expr) -> bool {
+/// Does `e` contain any text? Text can't appear inside an expression line,
+/// because it would end up between the delimiters.
+fn contains_text(e: &Expr) -> bool {
     match e {
-        Expr::Concat { in_error: true, .. } | Expr::Lit { in_error: true, .. } => true,
-        Expr::Concat { left, right, .. } | Expr::App(left, right) => {
-            is_any_unprintable(left) || is_any_unprintable(right)
-        }
-        Expr::Abs(_, b) => is_any_unprintable(b),
-        _ => false,
+        Expr::Lit { .. } | Expr::Concat { .. } => true,
+        Expr::Abs(_, b) => contains_text(b),
+        Expr::App(f, a) => contains_text(f) || contains_text(a),
+        Expr::Var(_) => false,
     }
 }
 
-pub fn to_document(e: &Expr) -> Result<Document, PrintError> {
-    if is_any_unprintable(&decorate_unprintable(e)) {
-        return Err(PrintError::ConcatExprText(e.clone()));
+/// Replace text inside an expression with a `[text from "FILE"]` marker, for
+/// error messages.
+fn mark_text(e: &Expr) -> Expr {
+    match e {
+        Expr::Lit {
+            content, source, ..
+        } => Expr::lit(content.clone(), source.clone(), true),
+        Expr::Concat {
+            left,
+            right,
+            source,
+            ..
+        } => Expr::concat((**left).clone(), (**right).clone(), source.clone(), true),
+        Expr::Abs(n, b) => Expr::abs(n.clone(), mark_text(b)),
+        Expr::App(f, a) => Expr::app(mark_text(f), mark_text(a)),
+        Expr::Var(_) => e.clone(),
     }
+}
+
+/// Turn an evaluated expression back into a document: leading lambdas become
+/// the header, text becomes raw lines, and anything else becomes an
+/// expression line, which must not contain text.
+pub fn to_document(e: &Expr) -> Result<Document, PrintError> {
     let mut arity = Vec::new();
     let mut e = e;
     while let Expr::Abs(n, b) = e {
         arity.push(n.clone());
         e = b;
     }
-    fn body(e: &Expr, out: &mut Vec<DocumentBody>) {
+    fn body(e: &Expr, out: &mut Vec<DocumentBody>) -> Result<(), PrintError> {
         match e {
             Expr::Lit { content, .. } => out.push(DocumentBody::RawText(content.clone())),
             Expr::Concat { left, right, .. } => {
-                body(left, out);
-                body(right, out);
+                body(left, out)?;
+                body(right, out)?;
             }
+            e if contains_text(e) => return Err(PrintError::ConcatExprText(mark_text(e))),
             e => out.push(DocumentBody::Expression(e.clone())),
         }
+        Ok(())
     }
     let mut b = Vec::new();
-    body(e, &mut b);
+    body(e, &mut b)?;
     Ok(Document { arity, body: b })
 }
 
