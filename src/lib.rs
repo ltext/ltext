@@ -5,6 +5,7 @@ pub mod chars;
 pub mod document;
 pub mod eval;
 pub mod expr;
+pub mod files;
 pub mod typecheck;
 
 use std::fmt;

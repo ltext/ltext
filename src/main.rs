@@ -1,69 +1,46 @@
-use std::collections::HashSet;
 use std::io::Write;
 use std::process::ExitCode;
 
 use clap::Parser;
 
 use ltext::Error;
-use ltext::document::{fetch_document, print_document, raw_document, to_document};
+use ltext::document::{print_document, to_document};
 use ltext::eval::{evaluate, free_vars, substitute};
-use ltext::expr::{Expr, parse_expr};
+use ltext::expr::{Expr, parse_expr, pp_expr};
+use ltext::files::Loader;
 use ltext::typecheck::{pp_type, type_of_top_level};
 
-/// Matches the Haskell build, which also reports this outdated number
-/// (docs/rust-port.md, bug #2).
-const VERSION_STRING: &str = "0.1.3";
-
-/// The Haskell build's optparse-applicative help text, reproduced exactly.
-const HELP: &str = "\
-λtext - parametrized file evaluator
-
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE]\u{20}
-             [--left LEFT] [--right RIGHT]
-
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
-
-Available options:
-  -h,--help                Show this help text
-  --version                Print the version number
-  -t,--type                Perform type inference on an expression
-  -v,--verbose             Be verbose, sending info through stderr
-  -r,--raw FILE            Treat these files as plaintext without an arity
-                           header
-  --left LEFT              The left delimiter to use for rendering partially
-                           applied files
-  --right RIGHT            The right delimiter to use for rendering partially
-                           applied files";
-
+/// λtext - parameterized file evaluator
+///
+/// Evaluate EXPRESSION and send the result to stdout. Free variables in
+/// EXPRESSION name files; a file whose first line is a header like
+/// `{{ x y }}` is a function of its parameters. See https://ltext.github.io/
+/// for more details.
 #[derive(Parser, Debug)]
-#[command(name = "ltext", override_help = HELP, disable_version_flag = true)]
+#[command(name = "ltext", version)]
 struct Opts {
+    /// Expression to evaluate, e.g. `greet name` or `\x -> wrap x`
     #[arg(value_name = "EXPRESSION")]
     expression: String,
 
-    /// Print the version number
-    #[arg(long)]
-    version: bool,
-
-    /// Perform type inference on an expression
+    /// Print the type of EXPRESSION instead of evaluating it
     #[arg(short = 't', long = "type")]
     type_query: bool,
 
-    /// Be verbose, sending info through stderr
+    /// Report what ltext is doing on stderr
     #[arg(short, long)]
     verbose: bool,
 
-    /// Treat these files as plaintext without an arity header
+    /// Treat FILE as plain text, even if its first line looks like a header
     #[arg(short, long, value_name = "FILE")]
     raw: Vec<String>,
 
-    /// The left delimiter to use for rendering partially applied files
-    #[arg(long, value_name = "LEFT")]
+    /// Left delimiter for rendering a partially applied result
+    #[arg(long, value_name = "LEFT", requires = "right")]
     left: Option<String>,
 
-    /// The right delimiter to use for rendering partially applied files
-    #[arg(long, value_name = "RIGHT")]
+    /// Right delimiter for rendering a partially applied result
+    #[arg(long, value_name = "RIGHT", requires = "left")]
     right: Option<String>,
 }
 
@@ -72,8 +49,8 @@ fn main() -> ExitCode {
         Ok(o) => o,
         Err(e) => {
             let _ = e.print();
-            // Help goes to stdout with exit 0; every usage error exits 1, as in
-            // the Haskell build (clap's default would be 2).
+            // --help and --version exit 0; usage errors exit 1, like every
+            // other error.
             return if e.use_stderr() {
                 ExitCode::FAILURE
             } else {
@@ -81,11 +58,6 @@ fn main() -> ExitCode {
             };
         }
     };
-
-    if opts.version {
-        eprintln!("Version: {VERSION_STRING}");
-        return ExitCode::SUCCESS;
-    }
 
     match run(&opts) {
         Ok(out) => {
@@ -104,32 +76,30 @@ fn main() -> ExitCode {
 
 fn run(opts: &Opts) -> Result<String, Error> {
     let expr = parse_expr(&opts.expression)?;
-    let raw: HashSet<String> = opts.raw.iter().cloned().collect();
+    let mut files = Loader::new(&opts.raw, opts.verbose);
+    if opts.verbose {
+        eprintln!("[ltext] expression: {}", pp_expr(&expr));
+    }
 
-    let ty = type_of_top_level(&expr, &raw)?;
+    let ty = type_of_top_level(&expr, &mut files)?;
+    if opts.verbose {
+        eprintln!("[ltext] type: {}", pp_type(&ty));
+    }
     if opts.type_query {
         return Ok(format!("{}\n", pp_type(&ty)));
     }
 
-    let resolved = resolve_top_level(expr, &raw)?;
+    let resolved = resolve_top_level(expr, &mut files)?;
     let doc = to_document(&evaluate(&resolved))?;
-    let delims = match (&opts.left, &opts.right) {
-        (Some(l), Some(r)) => Some((l.as_str(), r.as_str())),
-        _ => None,
-    };
+    let delims = opts.left.as_deref().zip(opts.right.as_deref());
     Ok(print_document(delims, &doc)?)
 }
 
 /// Replace each free variable with the contents of the file it names.
-fn resolve_top_level(e: Expr, raw: &HashSet<String>) -> Result<Expr, Error> {
+fn resolve_top_level(e: Expr, files: &mut Loader) -> Result<Expr, Error> {
     let mut out = e.clone();
     for f in free_vars(&e) {
-        let d = if raw.contains(&f) {
-            raw_document(&f)?
-        } else {
-            fetch_document(&f)?
-        };
-        out = substitute(&f, &d, &out);
+        out = substitute(&f, &files.load(&f)?, &out);
     }
     Ok(out)
 }

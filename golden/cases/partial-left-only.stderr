@@ -1,1 +1,6 @@
-[Print Error] Can't render a document with arity without explicit --left and --right delimiters
+error: the following required arguments were not provided:
+  --right <RIGHT>
+
+Usage: ltext --left <LEFT> --right <RIGHT> <EXPRESSION>
+
+For more information, try '--help'.

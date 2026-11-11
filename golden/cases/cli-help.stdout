@@ -1,19 +1,31 @@
-λtext - parametrized file evaluator
+λtext - parameterized file evaluator
 
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE] 
-             [--left LEFT] [--right RIGHT]
+Evaluate EXPRESSION and send the result to stdout. Free variables in EXPRESSION name files; a file whose first line is a header like `{{ x y }}` is a function of its parameters. See https://ltext.github.io/ for more details.
 
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
+Usage: ltext [OPTIONS] <EXPRESSION>
 
-Available options:
-  -h,--help                Show this help text
-  --version                Print the version number
-  -t,--type                Perform type inference on an expression
-  -v,--verbose             Be verbose, sending info through stderr
-  -r,--raw FILE            Treat these files as plaintext without an arity
-                           header
-  --left LEFT              The left delimiter to use for rendering partially
-                           applied files
-  --right RIGHT            The right delimiter to use for rendering partially
-                           applied files
+Arguments:
+  <EXPRESSION>
+          Expression to evaluate, e.g. `greet name` or `\x -> wrap x`
+
+Options:
+  -t, --type
+          Print the type of EXPRESSION instead of evaluating it
+
+  -v, --verbose
+          Report what ltext is doing on stderr
+
+  -r, --raw <FILE>
+          Treat FILE as plain text, even if its first line looks like a header
+
+      --left <LEFT>
+          Left delimiter for rendering a partially applied result
+
+      --right <RIGHT>
+          Right delimiter for rendering a partially applied result
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version

@@ -9,8 +9,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use crate::Error;
-use crate::document::fetch_document;
 use crate::expr::Expr;
+use crate::files::Loader;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -120,7 +120,7 @@ enum Level {
 struct Checker<'a> {
     subst: HashMap<String, Type>,
     fresh: usize,
-    raw_files: &'a HashSet<String>,
+    files: &'a mut Loader,
 }
 
 impl Checker<'_> {
@@ -182,12 +182,12 @@ impl Checker<'_> {
             }
             Expr::Var(x) => match ctx.get(x) {
                 Some(t) => Ok(t.clone()),
-                None if level == Level::TopLevel && std::path::Path::new(x).is_file() => {
-                    if self.raw_files.contains(x) {
+                None if level == Level::TopLevel && self.files.exists(x) => {
+                    if self.files.is_raw(x) {
                         Ok(Type::Text)
                     } else {
                         // Documents are closed: check them in an empty context.
-                        let d = fetch_document(x)?;
+                        let d = self.files.load(x)?;
                         self.infer(Level::DocLevel, &mut HashMap::new(), &d)
                     }
                 }
@@ -228,12 +228,12 @@ impl Checker<'_> {
 }
 
 /// Infer the type of a command-line expression, whose free variables are file
-/// names. Files in `raw_files` are plain text.
-pub fn type_of_top_level(e: &Expr, raw_files: &HashSet<String>) -> Result<Type, Error> {
+/// names.
+pub fn type_of_top_level(e: &Expr, files: &mut Loader) -> Result<Type, Error> {
     let mut c = Checker {
         subst: HashMap::new(),
         fresh: 0,
-        raw_files,
+        files,
     };
     let t = c.infer(Level::TopLevel, &mut HashMap::new(), e)?;
     Ok(c.resolve(&t))
@@ -245,7 +245,7 @@ mod tests {
     use crate::expr::parse_expr;
 
     fn type_of(src: &str) -> Result<String, String> {
-        type_of_top_level(&parse_expr(src).unwrap(), &HashSet::new())
+        type_of_top_level(&parse_expr(src).unwrap(), &mut Loader::new(&[], false))
             .map(|t| pp_type(&t))
             .map_err(|e| e.to_string())
     }
@@ -280,11 +280,11 @@ mod tests {
     #[test]
     fn unification_composes_substitutions() {
         // Unifying `a -> a` with `b -> Text` must solve both variables.
-        let raw = HashSet::new();
+        let mut files = Loader::new(&[], false);
         let mut c = Checker {
             subst: HashMap::new(),
             fresh: 0,
-            raw_files: &raw,
+            files: &mut files,
         };
         let (a, b) = (Type::TVar("a".into()), Type::TVar("b".into()));
         c.unify(
