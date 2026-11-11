@@ -1,0 +1,17 @@
+[package]
+name = "ltext"
+version = "0.1.5"
+edition = "2024"
+rust-version = "1.85"
+description = "λtext: general-purpose text-file templating utility"
+license = "BSD-3-Clause"
+repository = "https://github.com/ltext/ltext"
+authors = ["Athan Clark"]
+categories = ["command-line-utilities", "template-engine"]
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+unicode-general-category = "1.1.0"
+
+[dev-dependencies]
+proptest = "1.12.0"

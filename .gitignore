@@ -18,3 +18,4 @@ cabal.sandbox.config
 result/
 result
 dist-newstyle/
+rust/target/

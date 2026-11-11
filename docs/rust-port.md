@@ -1,10 +1,12 @@
 # Porting λtext to Rust
 
-Status: **preparation**. The Haskell implementation is still the reference.
+Status: **parity reached** in `rust/`. All golden cases pass, and differential
+fuzzing against the Haskell build (`golden/difffuzz.py`) finds no mismatches.
+The Haskell implementation stays the reference until cut-over.
 This document covers the behaviour the port has to reproduce, the quirks that
 are easy to get wrong, the known bugs, and the plan.
 
-The parity spec is the golden corpus in `golden/` (83 CLI cases recorded from
+The parity spec is the golden corpus in `golden/` (84 CLI cases recorded from
 the Haskell build; see `golden/README.md`). Source size is about 900 lines of
 Haskell (`src/LText/{Expr,Document,Eval,Type}.hs`, `app/Main.hs`); expect
 1,000–1,500 lines of Rust.
@@ -186,21 +188,22 @@ Fresh variables are `a0`, `a1`, … from one counter shared across the whole run
 | 3 | **Type-checker scope leak.** `Abs` never restores the context, so a parameter name used inside a referenced file overwrites the caller's binding. `\x -> apply x` is rejected and `\f -> apply f` gets the **unsound** type `a0 -> a3 -> Text`; `\z -> apply z` is correct. | `type-partial`, `type-scope-leak-*` |
 | 4 | Text spliced into an argument position isn't flagged as unprintable. It gets printed inside the delimiters and produces a broken document. | `partial-free-in-body`, `partial-text-in-arg` |
 | 5 | `-v/--verbose` does nothing. | `cli-verbose` |
-| 6 | Files are read and parsed twice (type check, then resolution). | — |
+| 6 | Evaluation isn't idempotent: a redex created by substitution is left unreduced and printed as is (`{{ (\z -> z) y }}`). The `idempotentEval` property only passes because random names rarely collide. | `eval-not-normalising` |
+| 7 | Files are read and parsed twice (type check, then resolution). | — |
 
 ## Plan
 
-1. **Scaffold** a Cargo crate in `rust/`. It can't go at the repo root yet
+1. ✅ **Scaffold** a Cargo crate in `rust/`. It can't go at the repo root yet
    because Haskell already uses `src/`. Set up the module layout above, and run
    `cargo test` plus `golden/run.sh rust/target/release/ltext` in CI next to the
    Haskell jobs.
-2. **Port the core** in dependency order — `expr` → `eval` → `document` →
+2. ✅ **Port the core** in dependency order — `expr` → `eval` → `document` →
    `typecheck` → `main` — with unit tests per module. Port the three QuickCheck
    properties to proptest.
-3. **Parity**: make `golden/run.sh` pass on stdout and exit codes. Use
+3. ✅ **Parity**: make `golden/run.sh` pass on stdout and exit codes. Use
    `--strict-stderr` for the `[… Error]` lines too, except the bug #1 cases.
-   Optionally add a differential fuzz harness that runs both binaries on random
-   expressions and documents.
+   `golden/difffuzz.py` runs both binaries on random expressions and documents
+   (10,000 cases, no mismatches).
 4. **Cut over**: move the crate to the root and delete the Haskell sources. Then
    switch Nix to `rustPlatform.buildRustPackage`, switch the snap to the `rust`
    plugin (re-check the classic/strict confinement plugs), and update the
@@ -209,15 +212,13 @@ Fresh variables are `a0`, `a1`, … from one counter shared across the whole run
    golden cases (`golden/run.sh --update --only …` on the Rust binary). Each
    diff then shows exactly what behaviour changed.
 
-## Open decisions
+## Decisions (2026-11-11)
 
-- **Bug-for-bug parity first, then fixes** (recommended, as in the plan), or fix
-  while porting? Parity first means the corpus is an exact oracle. Fixing while
-  porting means the corpus has to be edited by hand.
-- **Error message format** for the bug #1 cases: use the in-document
-  `[Parse Error] …` format (recommended). Should the lexeme dumps keep Haskell's
-  `show` syntax (`[Ident "x",Arrow]`) or switch to something friendlier?
-- **Haskell's future**: delete it at cut-over (recommended), or keep it as a
-  reference implementation for a while.
-- **Library API**: is anything besides the CLI a public interface? If not, keep
-  it a single binary crate with internal modules.
+- **Exact parity first, then fixes.** The golden corpus is an exact oracle
+  during the port. Bugs get fixed afterwards, one commit each, re-recording only
+  the affected cases.
+- **The crate lives in `rust/`** until cut-over.
+- **Haskell is deleted at cut-over.**
+- **Bug #1 cases** (top-level parse errors) only need to match the exit code
+  and stdout during parity. Their stderr is a GHC exception dump and isn't
+  reproduced.

@@ -47,3 +47,24 @@ jobs:
           key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
           restore-keys: stack-${{ runner.os }}-
       - run: stack test
+
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build --release
+      - name: Golden tests
+        run: ../golden/run.sh target/release/ltext

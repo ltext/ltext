@@ -20,5 +20,9 @@ and not worth reproducing: optparse-applicative's usage text, and the GHC
 exception dumps (with call-stack backtraces) from uncaught top-level parse
 errors.
 
+`difffuzz.py REFERENCE CANDIDATE` runs both binaries on random documents and
+expressions, and reports any difference in stdout, exit code or stderr
+(ignoring stderr that is specific to Haskell).
+
 Several cases record **current bugs** on purpose, so the port can first match
 them and then fix them deliberately. `docs/rust-port.md` lists which ones.
