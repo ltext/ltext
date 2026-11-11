@@ -1,0 +1,5 @@
+-r
+bar
+-r
+rawhead
+apply foo rawhead

@@ -1,0 +1,5 @@
+--left
+{{
+--right
+}}
+\x -> apply (\y -> foo y) x

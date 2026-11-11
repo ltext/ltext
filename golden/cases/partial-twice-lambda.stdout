@@ -1,0 +1,4 @@
+{{ g x }}
+begin
+{{ (\y -> g y) ((\y -> g y) x) }}
+end

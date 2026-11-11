@@ -1,0 +1,19 @@
+λtext - parametrized file evaluator
+
+Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE] 
+             [--left LEFT] [--right RIGHT]
+
+  Evaluate EXPRESSION and send the substitution to stdout. See
+  http://ltext.github.io/ for more details.
+
+Available options:
+  -h,--help                Show this help text
+  --version                Print the version number
+  -t,--type                Perform type inference on an expression
+  -v,--verbose             Be verbose, sending info through stderr
+  -r,--raw FILE            Treat these files as plaintext without an arity
+                           header
+  --left LEFT              The left delimiter to use for rendering partially
+                           applied files
+  --right RIGHT            The right delimiter to use for rendering partially
+                           applied files

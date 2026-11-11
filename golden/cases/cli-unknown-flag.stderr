@@ -1,0 +1,7 @@
+Invalid option `--frobnicate'
+
+Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE] 
+             [--left LEFT] [--right RIGHT]
+
+  Evaluate EXPRESSION and send the substitution to stdout. See
+  http://ltext.github.io/ for more details.
