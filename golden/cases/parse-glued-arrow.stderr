@@ -1,9 +1,1 @@
-ltext: Uncaught exception ltext-0.1.5-inplace:LText.Expr.ParseError:
-
-EmptyExpression
-
-HasCallStack backtrace:
-  throwIO, called at libraries/exceptions/src/Control/Monad/Catch.hs:343:12 in exceptions-0.10.11-e9cb:Control.Monad.Catch
-  throwM, called at libraries/exceptions/src/Control/Monad/Catch.hs:432:21 in exceptions-0.10.11-e9cb:Control.Monad.Catch
-  throwM, called at src/LText/Expr.hs:207:14 in ltext-0.1.5-inplace:LText.Expr
-
+[Parse Error] Empty expression

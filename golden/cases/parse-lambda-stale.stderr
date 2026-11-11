@@ -1,9 +1,1 @@
-ltext: Uncaught exception ltext-0.1.5-inplace:LText.Expr.ParseError:
-
-LambdaInStaleScope [Lambda,Ident "x",Arrow,Ident "x"] (Var "foo")
-
-HasCallStack backtrace:
-  throwIO, called at libraries/exceptions/src/Control/Monad/Catch.hs:343:12 in exceptions-0.10.11-e9cb:Control.Monad.Catch
-  throwM, called at libraries/exceptions/src/Control/Monad/Catch.hs:432:21 in exceptions-0.10.11-e9cb:Control.Monad.Catch
-  throwM, called at src/LText/Expr.hs:212:28 in ltext-0.1.5-inplace:LText.Expr
-
+[Parse Error] A lambda is inside a stale scope, with trailing token stream: [Lambda,Ident "x",Arrow,Ident "x"] and parse state Var "foo"

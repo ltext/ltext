@@ -1,1 +1,1 @@
-[Type Error] Unbound variable "y"
+[Type Error] Unbound variable "y" (not a lambda parameter or an existing file)

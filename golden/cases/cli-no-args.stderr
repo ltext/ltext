@@ -1,7 +1,6 @@
-Missing: EXPRESSION
+error: the following required arguments were not provided:
+  <EXPRESSION>
 
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE] 
-             [--left LEFT] [--right RIGHT]
+Usage: ltext <EXPRESSION>
 
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
+For more information, try '--help'.

@@ -1,9 +1,1 @@
-ltext: Uncaught exception ltext-0.1.5-inplace:LText.Expr.ParseError:
-
-BracketsInsideLambda [Bracketed {getBracketed = [Ident "x"]},Arrow,Ident "x"]
-
-HasCallStack backtrace:
-  throwIO, called at libraries/exceptions/src/Control/Monad/Catch.hs:343:12 in exceptions-0.10.11-e9cb:Control.Monad.Catch
-  throwM, called at libraries/exceptions/src/Control/Monad/Catch.hs:432:21 in exceptions-0.10.11-e9cb:Control.Monad.Catch
-  throwM, called at src/LText/Expr.hs:238:25 in ltext-0.1.5-inplace:LText.Expr
-
+[Parse Error] Brackets are inside a lambda declaration, with trailing token stream: [Bracketed {getBracketed = [Ident "x"]},Arrow,Ident "x"]

@@ -1,7 +1,7 @@
-Invalid option `--frobnicate'
+error: unexpected argument '--frobnicate' found
 
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE] 
-             [--left LEFT] [--right RIGHT]
+  tip: to pass '--frobnicate' as a value, use '-- --frobnicate'
 
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
+Usage: ltext [OPTIONS] <EXPRESSION>
+
+For more information, try '--help'.

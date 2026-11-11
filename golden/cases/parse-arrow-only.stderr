@@ -1,13 +1,7 @@
-Invalid option `->'
+error: unexpected argument '->' found
 
-Did you mean one of these?
-    -h
-    -t
-    -v
-    -r
+  tip: to pass '->' as a value, use '-- ->'
 
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE] 
-             [--left LEFT] [--right RIGHT]
+Usage: ltext [OPTIONS] <EXPRESSION>
 
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
+For more information, try '--help'.

@@ -11,7 +11,6 @@ use std::fmt;
 use crate::Error;
 use crate::document::fetch_document;
 use crate::expr::Expr;
-use crate::hsshow::show_string;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -45,176 +44,255 @@ impl Type {
     }
 }
 
-/// `ppType`.
-pub fn pp_type(t: &Type) -> String {
-    match t {
-        Type::Text => "Text".into(),
-        Type::TVar(n) => n.clone(),
-        Type::Arrow(a, b) => {
-            let l = match **a {
-                Type::Arrow(..) => format!("({})", pp_type(a)),
-                _ => pp_type(a),
-            };
-            format!("{l} -> {}", pp_type(b))
+/// Renames type variables to `a0`, `a1`, … in order of first appearance, so
+/// printed types don't depend on how many fresh variables inference used.
+#[derive(Default)]
+struct Renamer(HashMap<String, String>);
+
+impl Renamer {
+    fn pp(&mut self, t: &Type) -> String {
+        match t {
+            Type::Text => "Text".into(),
+            Type::TVar(n) => {
+                let next = format!("a{}", self.0.len());
+                self.0.entry(n.clone()).or_insert(next).clone()
+            }
+            Type::Arrow(a, b) => {
+                let l = match **a {
+                    Type::Arrow(..) => format!("({})", self.pp(a)),
+                    _ => self.pp(a),
+                };
+                format!("{l} -> {}", self.pp(b))
+            }
         }
     }
+}
+
+/// Pretty-print a type, e.g. `(a0 -> Text) -> a0 -> Text`.
+pub fn pp_type(t: &Type) -> String {
+    Renamer::default().pp(t)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeError {
     CantUnify(Type, Type),
     UnboundVariable(String),
-    OccursCheckFailure(String, Type),
+    /// A type variable that would have to contain itself.
+    OccursCheckFailure(Type, Type),
 }
 
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut r = Renamer::default();
         match self {
             TypeError::CantUnify(a, b) => {
+                let (a, b) = (r.pp(a), r.pp(b));
+                write!(f, "[Type Error] Can't unify type {a} with {b}")
+            }
+            TypeError::UnboundVariable(n) => write!(
+                f,
+                "[Type Error] Unbound variable \"{n}\" (not a lambda parameter or an existing file)"
+            ),
+            TypeError::OccursCheckFailure(v, t) => {
+                let (v, t) = (r.pp(v), r.pp(t));
                 write!(
                     f,
-                    "[Type Error] Can't unify type {} with {}",
-                    pp_type(a),
-                    pp_type(b)
+                    "[Type Error] Occurs check failure: type variable {v} in {t}. Note: recursion is forbidden"
                 )
             }
-            TypeError::UnboundVariable(n) => {
-                write!(f, "[Type Error] Unbound variable {}", show_string(n))
-            }
-            TypeError::OccursCheckFailure(n, t) => write!(
-                f,
-                "[Type Error] Occurs check failure: type variable {} in {}. Note: recursion is forbidden",
-                show_string(n),
-                pp_type(t)
-            ),
         }
     }
 }
 
 impl std::error::Error for TypeError {}
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct Subst(HashMap<String, Type>);
-
-impl Subst {
-    fn single(n: String, t: Type) -> Subst {
-        Subst(HashMap::from([(n, t)]))
-    }
-
-    fn apply(&self, t: &Type) -> Type {
-        match t {
-            Type::Text => Type::Text,
-            Type::TVar(n) => self.0.get(n).cloned().unwrap_or_else(|| t.clone()),
-            Type::Arrow(a, b) => Type::arrow(self.apply(a), self.apply(b)),
-        }
-    }
-
-    /// `self <> other` = `fmap (apply self) other <> self` (left-biased union).
-    fn compose(&self, other: &Subst) -> Subst {
-        let mut out = self.0.clone();
-        for (k, v) in &other.0 {
-            out.insert(k.clone(), self.apply(v));
-        }
-        Subst(out)
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Level {
+    /// The command-line expression: free variables are file names.
     TopLevel,
+    /// Inside a document: every variable must be bound by its header.
     DocLevel,
 }
 
+/// Hindley-Milner inference (algorithm W) over a single global substitution.
+/// The language has no `let`, so there's no generalisation. Each reference to a
+/// file is inferred afresh, which makes files polymorphic per use.
 struct Checker<'a> {
-    context: HashMap<String, Type>,
+    subst: HashMap<String, Type>,
     fresh: usize,
     raw_files: &'a HashSet<String>,
 }
 
 impl Checker<'_> {
     fn fresh_tvar(&mut self) -> Type {
-        let t = Type::TVar(format!("a{}", self.fresh));
+        let t = Type::TVar(format!("t{}", self.fresh));
         self.fresh += 1;
         t
     }
 
-    fn infer(&mut self, level: Level, e: &Expr) -> Result<(Subst, Type), Error> {
-        match e {
-            Expr::Lit { .. } => Ok((Subst::default(), Type::Text)),
-            Expr::Concat { left, right, .. } => {
-                let (s1, t1) = self.infer(level, left)?;
-                let (s2, t2) = self.infer(level, right)?;
-                let s3 = mgu(&t1, &t2)?;
-                let s4 = mgu(&s3.apply(&t1), &Type::Text)?;
-                // `s4 <> s3 <> s2 <> s1`, with `<>` right-associative.
-                Ok((s4.compose(&s3.compose(&s2.compose(&s1))), Type::Text))
+    /// Apply the current substitution completely.
+    fn resolve(&self, t: &Type) -> Type {
+        match t {
+            Type::Text => Type::Text,
+            Type::TVar(n) => match self.subst.get(n) {
+                Some(t2) => self.resolve(t2),
+                None => t.clone(),
+            },
+            Type::Arrow(a, b) => Type::arrow(self.resolve(a), self.resolve(b)),
+        }
+    }
+
+    fn unify(&mut self, a: &Type, b: &Type) -> Result<(), TypeError> {
+        let (a, b) = (self.resolve(a), self.resolve(b));
+        match (&a, &b) {
+            (Type::Text, Type::Text) => Ok(()),
+            (Type::TVar(n), Type::TVar(m)) if n == m => Ok(()),
+            (Type::TVar(n), t) | (t, Type::TVar(n)) => {
+                if t.contains_tvar(n) {
+                    return Err(TypeError::OccursCheckFailure(
+                        Type::TVar(n.clone()),
+                        t.clone(),
+                    ));
+                }
+                self.subst.insert(n.clone(), t.clone());
+                Ok(())
             }
-            Expr::Var(x) => match self.context.get(x) {
-                Some(t) => Ok((Subst::default(), t.clone())),
+            (Type::Arrow(a1, a2), Type::Arrow(b1, b2)) => {
+                self.unify(a1, b1)?;
+                self.unify(a2, b2)
+            }
+            _ => Err(TypeError::CantUnify(a, b)),
+        }
+    }
+
+    fn infer(
+        &mut self,
+        level: Level,
+        ctx: &mut HashMap<String, Type>,
+        e: &Expr,
+    ) -> Result<Type, Error> {
+        match e {
+            Expr::Lit { .. } => Ok(Type::Text),
+            Expr::Concat { left, right, .. } => {
+                let tl = self.infer(level, ctx, left)?;
+                self.unify(&tl, &Type::Text).map_err(|e| self.finish(e))?;
+                let tr = self.infer(level, ctx, right)?;
+                self.unify(&tr, &Type::Text).map_err(|e| self.finish(e))?;
+                Ok(Type::Text)
+            }
+            Expr::Var(x) => match ctx.get(x) {
+                Some(t) => Ok(t.clone()),
                 None if level == Level::TopLevel && std::path::Path::new(x).is_file() => {
                     if self.raw_files.contains(x) {
-                        Ok((Subst::default(), Type::Text))
+                        Ok(Type::Text)
                     } else {
+                        // Documents are closed: check them in an empty context.
                         let d = fetch_document(x)?;
-                        self.infer(Level::DocLevel, &d)
+                        self.infer(Level::DocLevel, &mut HashMap::new(), &d)
                     }
                 }
                 None => Err(TypeError::UnboundVariable(x.clone()).into()),
             },
             Expr::Abs(n, body) => {
                 let t = self.fresh_tvar();
-                // Bug-for-bug: the binding isn't removed again afterwards.
-                self.context.insert(n.clone(), t.clone());
-                let (s, tb) = self.infer(level, body)?;
-                let ta = s.apply(&t);
-                Ok((s, Type::arrow(ta, tb)))
+                let shadowed = ctx.insert(n.clone(), t.clone());
+                let tb = self.infer(level, ctx, body);
+                match shadowed {
+                    Some(old) => ctx.insert(n.clone(), old),
+                    None => ctx.remove(n),
+                };
+                Ok(Type::arrow(t, tb?))
             }
             Expr::App(f, a) => {
-                let t = self.fresh_tvar();
-                let (s1, t1) = self.infer(level, f)?;
-                for v in self.context.values_mut() {
-                    *v = s1.apply(v);
-                }
-                let (s2, t2) = self.infer(level, a)?;
-                let s3 = mgu(&s2.apply(&t1), &Type::arrow(t2, t.clone()))?;
-                let result = s3.apply(&t);
-                Ok((s3.compose(&s2.compose(&s1)), result))
+                let tf = self.infer(level, ctx, f)?;
+                let ta = self.infer(level, ctx, a)?;
+                let r = self.fresh_tvar();
+                self.unify(&tf, &Type::arrow(ta, r.clone()))
+                    .map_err(|e| self.finish(e))?;
+                Ok(r)
             }
         }
     }
-}
 
-fn mgu(a: &Type, b: &Type) -> Result<Subst, TypeError> {
-    match (a, b) {
-        (Type::Arrow(l1, l2), Type::Arrow(r1, r2)) => {
-            let s1 = mgu(l1, r1)?;
-            let s2 = mgu(&s1.apply(l2), &s1.apply(r2))?;
-            Ok(s1.compose(&s2))
+    /// Resolve the types in an error message as far as is known.
+    fn finish(&self, e: TypeError) -> Error {
+        match e {
+            TypeError::CantUnify(a, b) => TypeError::CantUnify(self.resolve(&a), self.resolve(&b)),
+            TypeError::OccursCheckFailure(a, b) => {
+                TypeError::OccursCheckFailure(self.resolve(&a), self.resolve(&b))
+            }
+            e => e,
         }
-        (Type::TVar(n), t) | (t, Type::TVar(n)) => var_bind(n, t),
-        (Type::Text, Type::Text) => Ok(Subst::default()),
-        _ => Err(TypeError::CantUnify(a.clone(), b.clone())),
+        .into()
     }
 }
 
-fn var_bind(n: &str, t: &Type) -> Result<Subst, TypeError> {
-    if *t == Type::TVar(n.to_owned()) {
-        Ok(Subst::default())
-    } else if t.contains_tvar(n) {
-        Err(TypeError::OccursCheckFailure(n.to_owned(), t.clone()))
-    } else {
-        Ok(Subst::single(n.to_owned(), t.clone()))
-    }
-}
-
-/// `typeOfTopLevel`: infer the type of a command-line expression, whose free
-/// variables are file names. Files in `raw_files` are plain text.
+/// Infer the type of a command-line expression, whose free variables are file
+/// names. Files in `raw_files` are plain text.
 pub fn type_of_top_level(e: &Expr, raw_files: &HashSet<String>) -> Result<Type, Error> {
     let mut c = Checker {
-        context: HashMap::new(),
+        subst: HashMap::new(),
         fresh: 0,
         raw_files,
     };
-    let (s, t) = c.infer(Level::TopLevel, e)?;
-    Ok(s.apply(&t))
+    let t = c.infer(Level::TopLevel, &mut HashMap::new(), e)?;
+    Ok(c.resolve(&t))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::expr::parse_expr;
+
+    fn type_of(src: &str) -> Result<String, String> {
+        type_of_top_level(&parse_expr(src).unwrap(), &HashSet::new())
+            .map(|t| pp_type(&t))
+            .map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn infers_combinators() {
+        assert_eq!(type_of(r"\x -> x").unwrap(), "a0 -> a0");
+        assert_eq!(type_of(r"\x y -> x").unwrap(), "a0 -> a1 -> a0");
+        assert_eq!(
+            type_of(r"\f g x -> f (g x)").unwrap(),
+            "(a0 -> a1) -> (a2 -> a0) -> a2 -> a1"
+        );
+        assert_eq!(type_of(r"(\x -> x) (\y -> y)").unwrap(), "a0 -> a0");
+    }
+
+    #[test]
+    fn lambda_scope_is_restored() {
+        // `x` is only bound inside the first lambda.
+        assert!(
+            type_of(r"(\x -> x) x")
+                .unwrap_err()
+                .contains("Unbound variable \"x\"")
+        );
+        assert_eq!(type_of(r"\x -> (\x -> x) x").unwrap(), "a0 -> a0");
+    }
+
+    #[test]
+    fn rejects_self_application() {
+        assert!(type_of(r"\x -> x x").unwrap_err().contains("Occurs check"));
+    }
+
+    #[test]
+    fn unification_composes_substitutions() {
+        // Unifying `a -> a` with `b -> Text` must solve both variables.
+        let raw = HashSet::new();
+        let mut c = Checker {
+            subst: HashMap::new(),
+            fresh: 0,
+            raw_files: &raw,
+        };
+        let (a, b) = (Type::TVar("a".into()), Type::TVar("b".into()));
+        c.unify(
+            &Type::arrow(a.clone(), a.clone()),
+            &Type::arrow(b.clone(), Type::Text),
+        )
+        .unwrap();
+        assert_eq!(c.resolve(&a), Type::Text);
+        assert_eq!(c.resolve(&b), Type::Text);
+    }
 }
