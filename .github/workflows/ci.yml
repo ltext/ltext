@@ -6,65 +6,37 @@ on:
   pull_request:
 
 jobs:
-  cabal:
-    name: cabal / GHC ${{ matrix.ghc }}
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['9.6', '9.8', '9.10', '9.12', '9.14']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        id: setup
-        with:
-          ghc-version: ${{ matrix.ghc }}
-          cabal-version: latest
-      - name: Resolve dependencies
-        run: |
-          cabal update
-          cabal build all --enable-tests --dry-run
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.setup.outputs.cabal-store }}
-          key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
-          restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
-      - run: cabal build all --enable-tests
-      - run: cabal test all
-
-  stack:
-    name: stack
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        with:
-          enable-stack: true
-          stack-no-global: true
-      - uses: actions/cache@v4
-        with:
-          path: ~/.stack
-          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
-          restore-keys: stack-${{ runner.os }}-
-      - run: stack test
-
-  rust:
-    name: rust
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: rust
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       - run: cargo build --release
       - name: Golden tests
-        run: ../golden/run.sh target/release/ltext
+        run: golden/run.sh --strict-stderr target/release/ltext
+
+  msrv:
+    name: minimum supported Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85
+      - run: cargo build --locked
+
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix build --print-build-logs

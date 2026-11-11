@@ -1,8 +1,8 @@
 # Porting λtext to Rust
 
-Status: **parity reached** in `rust/`. All golden cases pass, and differential
-fuzzing against the Haskell build (`golden/difffuzz.py`) finds no mismatches.
-The Haskell implementation stays the reference until cut-over.
+Status: **cut over** — the Rust crate is now the implementation (repo root);
+the Haskell sources are deleted. Bugs found during the port are being fixed;
+see the table below.
 This document covers the behaviour the port has to reproduce, the quirks that
 are easy to get wrong, the known bugs, and the plan.
 

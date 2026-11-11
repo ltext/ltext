@@ -1,5 +1,0 @@
-# Stackage LTS 24 (GHC 9.10). See https://docs.haskellstack.org/en/stable/configure/yaml/
-snapshot: lts-24.66
-
-packages:
-- .

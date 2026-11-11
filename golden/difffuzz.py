@@ -6,9 +6,9 @@
 Generates random document files (headers, expression lines, raw text, odd
 whitespace, unicode) in a temp copy of golden/fixtures/. It then runs both
 binaries on random expressions, random lexer garbage and random flags.
-stdout and exit codes must always match. stderr must match too, except where
-the reference prints a GHC exception dump or a usage error (those messages are
-specific to the Haskell implementation).
+stdout and exit codes must always match. stderr must match too, except for
+usage errors and messages from the original Haskell implementation (GHC
+exception dumps), so the script also works against that build.
 """
 import argparse
 import os

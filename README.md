@@ -12,23 +12,13 @@ prenex polymorphic type system. See the [github.io page](http://ltext.github.io/
 
 ## Building
 
-λtext is tested with GHC 9.6 through 9.14.
-
-### Using Cabal
+λtext is written in Rust (1.85 or newer).
 
 ```bash
 $> git clone https://github.com/ltext/ltext
 $> cd ltext
-$> cabal install
+$> cargo install --path .
 ```
-
-### Using Stack
-
-```bash
-$> stack install
-```
-
-The Stack build uses the snapshot pinned in `stack.yaml` (Stackage LTS 24, GHC 9.10).
 
 ### Using Nix
 
@@ -37,16 +27,20 @@ With flakes enabled:
 ```bash
 $> nix build          # binary at ./result/bin/ltext
 $> nix run . -- --help
-$> nix develop        # shell with GHC, cabal, hpack and HLS
+$> nix develop        # shell with cargo, clippy, rustfmt and rust-analyzer
 ```
 
 Without flakes, `nix-build` builds the executable from your `<nixpkgs>` channel.
 
-### Hacking
+### Testing
 
-`package.yaml` is the source of truth; `ltext.cabal` is generated from it by
-[hpack](https://github.com/sol/hpack) (Stack does this automatically). After
-changing `package.yaml` while using Cabal, run `hpack` to regenerate it.
+```bash
+$> cargo test                                   # unit and property tests
+$> cargo build --release
+$> golden/run.sh target/release/ltext           # CLI golden tests
+```
+
+See `golden/README.md` for the golden test corpus.
 
 ## Usage
 

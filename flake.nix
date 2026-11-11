@@ -10,24 +10,18 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        hsPkgs = pkgs.haskellPackages;
-        ltext = hsPkgs.callCabal2nix "ltext" self { };
+        ltext = pkgs.callPackage ./default.nix { };
       in {
         packages = {
           inherit ltext;
-          default = pkgs.haskell.lib.justStaticExecutables ltext;
+          default = ltext;
         };
 
-        apps.default = flake-utils.lib.mkApp { drv = self.packages.${system}.default; };
+        apps.default = flake-utils.lib.mkApp { drv = ltext; };
 
-        devShells.default = hsPkgs.shellFor {
-          packages = _: [ ltext ];
-          withHoogle = false;
-          nativeBuildInputs = [
-            hsPkgs.cabal-install
-            hsPkgs.haskell-language-server
-            pkgs.hpack
-          ];
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [ ltext ];
+          packages = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer ];
         };
       });
 }

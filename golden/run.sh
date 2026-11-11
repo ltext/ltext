@@ -38,8 +38,9 @@ pass=0 fail=0 notes=0
 for argsfile in "$here"/cases/*.args; do
   name=$(basename "$argsfile" .args)
   [[ -n $only && $name != *$only* ]] && continue
-  mapfile -t args < "$argsfile"
-  (cd "$here/fixtures" && "$bin" "${args[@]}" >"$tmp/out" 2>"$tmp/err" </dev/null)
+  args=()
+  while IFS= read -r line || [[ -n $line ]]; do args+=("$line"); done < "$argsfile"
+  (cd "$here/fixtures" && "$bin" ${args[@]+"${args[@]}"} >"$tmp/out" 2>"$tmp/err" </dev/null)
   echo $? >"$tmp/code"
 
   if [[ $update -eq 1 ]]; then
