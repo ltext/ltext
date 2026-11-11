@@ -1,15 +1,13 @@
 # Porting λtext to Rust
 
-Status: **cut over** — the Rust crate is now the implementation (repo root);
-the Haskell sources are deleted. Bugs found during the port are being fixed;
-see the table below.
-This document covers the behaviour the port has to reproduce, the quirks that
-are easy to get wrong, the known bugs, and the plan.
+Status: **done**. The Rust crate at the repository root is the
+implementation, and the Haskell sources are deleted. The port first matched
+the Haskell build exactly (all golden cases, plus 10,000 differential fuzz
+cases), and then fixed the bugs listed below, one commit each.
 
-The parity spec is the golden corpus in `golden/` (84 CLI cases recorded from
-the Haskell build; see `golden/README.md`). Source size is about 900 lines of
-Haskell (`src/LText/{Expr,Document,Eval,Type}.hs`, `app/Main.hs`); expect
-1,000–1,500 lines of Rust.
+This document records how the port was done. The "Haskell behaviour" section
+describes the original implementation, which was the parity target. Where the
+Rust version now differs, the bug table says so.
 
 ## Pipeline
 
@@ -51,7 +49,7 @@ enum Type { Text, TVar(String), Arrow(Box<Type>, Box<Type>) }
 
 `in_error` exists only so error messages can show `[text from "file"]`.
 
-## Behaviour to reproduce exactly
+## Haskell behaviour (the parity target)
 
 ### Character classes (use Unicode general categories, not Rust's helpers)
 
@@ -179,17 +177,36 @@ Fresh variables are `a0`, `a1`, … from one counter shared across the whole run
   wording will differ.
 - `--left` without `--right` (or the reverse) is silently ignored.
 
-## Known bugs (recorded as-is in the golden corpus)
+## Bugs found and fixed after parity
 
-| # | Bug | Golden case(s) |
-|---|-----|----------------|
-| 1 | Top-level parse errors aren't caught. They escape as a GHC exception dump instead of `[Parse Error] …` (only parse errors *inside documents* get the formatted message). | `parse-*` |
-| 2 | `--version` can't run: EXPRESSION is required. It would also print the stale `0.1.3`. | `cli-version` |
-| 3 | **Type-checker scope leak.** `Abs` never restores the context, so a parameter name used inside a referenced file overwrites the caller's binding. `\x -> apply x` is rejected and `\f -> apply f` gets the **unsound** type `a0 -> a3 -> Text`; `\z -> apply z` is correct. | `type-partial`, `type-scope-leak-*` |
-| 4 | Text spliced into an argument position isn't flagged as unprintable. It gets printed inside the delimiters and produces a broken document. | `partial-free-in-body`, `partial-text-in-arg` |
-| 5 | `-v/--verbose` does nothing. | `cli-verbose` |
-| 6 | Evaluation isn't idempotent: a redex created by substitution is left unreduced and printed as is (`{{ (\z -> z) y }}`). The `idempotentEval` property only passes because random names rarely collide. | `eval-not-normalising` |
-| 7 | Files are read and parsed twice (type check, then resolution). | — |
+Bugs 1–7 were recorded in the golden corpus during the port. The rest turned
+up while fixing them.
+
+| # | Bug in the Haskell version | Fix |
+|---|----------------------------|-----|
+| 1 | Top-level parse errors weren't caught; they escaped as a GHC exception dump. | Formatted `[Parse Error]` messages (port) |
+| 2 | `--version` required an EXPRESSION and printed the stale `0.1.3`. | `eccc156` |
+| 3 | Type-checker scope leak: `Abs` never restored the context, so `\x -> apply x` was rejected and `\f -> apply f` got an unsound type. | `7b255e6` |
+| 4 | Text in argument position (`\g -> g foo`) was spliced between delimiters, producing a broken document. | `8201362` |
+| 5 | `-v/--verbose` did nothing. | `eccc156` |
+| 6 | Evaluation didn't normalise: redexes created by substitution were printed (`{{ (\z -> z) y }}`). | `e13ad7c` |
+| 7 | Each file was read and parsed twice. | `eccc156` |
+| 8 | Substitution wasn't capture-avoiding: `\b -> const b` rendered as `{{ b b }} / {{ b }}`. | `e13ad7c` |
+| 9 | Referenced documents were type-checked in the caller's context (dynamic scoping): `\y -> unbound` type-checked. | `7b255e6` |
+| 10 | `mgu` composed arrow substitutions in the wrong order; `Concat` didn't thread its substitution. | `7b255e6` |
+| 11 | The lexer silently dropped input it couldn't handle: `foo (bar` meant `foo`, and `foo bar )` ignored the paren. | `d8f98db` |
+| 12 | Names swallowed arrows, so `\x->x` failed with "Empty expression". | `d8f98db` |
+| 13 | `--left` without `--right` (or the reverse) was silently ignored. | `eccc156` |
+| 14 | Error messages used Haskell `show` syntax (`[Ident "x",Arrow]`, `"h\233llo"`), and parse errors in documents didn't say where they were. | `7b255e6`, `d8f98db` |
+| 15 | Type variables in `-t` output were numbered by internal counter (`(a4 -> a3) -> …`). They are now `a0, a1, …` in order of appearance. | `7b255e6` |
+
+### Known limitations (unchanged)
+
+- Any file whose first line has three or more words is read as having a
+  header, prose included. Use `--raw` for such files.
+- Output always ends with a newline, even if a source file didn't.
+- In CRLF files, `\r` is kept on raw lines but lost on expression lines.
+- Names can't contain `\`, `(`, `)` or `->`. There is no escaping (see `TODO`).
 
 ## Plan
 
@@ -204,11 +221,11 @@ Fresh variables are `a0`, `a1`, … from one counter shared across the whole run
    `--strict-stderr` for the `[… Error]` lines too, except the bug #1 cases.
    `golden/difffuzz.py` runs both binaries on random expressions and documents
    (10,000 cases, no mismatches).
-4. **Cut over**: move the crate to the root and delete the Haskell sources. Then
+4. ✅ **Cut over**: move the crate to the root and delete the Haskell sources. Then
    switch Nix to `rustPlatform.buildRustPackage`, switch the snap to the `rust`
    plugin (re-check the classic/strict confinement plugs), and update the
-   README. Release as 0.2.0.
-5. **Fix the bugs above** in separate commits, re-recording only the affected
+   README. (Version still 0.1.5; tagging a 0.2.0 release is still to do.)
+5. ✅ **Fix the bugs above** in separate commits, re-recording only the affected
    golden cases (`golden/run.sh --update --only …` on the Rust binary). Each
    diff then shows exactly what behaviour changed.
 
@@ -218,7 +235,8 @@ Fresh variables are `a0`, `a1`, … from one counter shared across the whole run
   during the port. Bugs get fixed afterwards, one commit each, re-recording only
   the affected cases.
 - **The crate lives in `rust/`** until cut-over.
-- **Haskell is deleted at cut-over.**
+- **Haskell is deleted at cut-over.** The cut-over happened partway through
+  the bug fixes: once parity was confirmed, the Rust behaviour became the spec.
 - **Bug #1 cases** (top-level parse errors) only need to match the exit code
   and stdout during parity. Their stderr is a GHC exception dump and isn't
   reproduced.

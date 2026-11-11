@@ -45,30 +45,53 @@ See `golden/README.md` for the golden test corpus.
 ## Usage
 
 ```bash
-$> ltext --help
-
+$> ltext -h
 λtext - parameterized file evaluator
 
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE]
-             [--left LEFT] [--right RIGHT]
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
+Usage: ltext [OPTIONS] <EXPRESSION>
 
-Available options:
-  -h,--help                Show this help text
-  --version                Print the version number
-  -t,--type                Perform type inference on an expression
-  -v,--verbose             Be verbose, sending info through stderr
-  -r,--raw FILE            Treat these files as plaintext without an arity
-                           header
-  --left LEFT              The left delimiter to use for rendering partially
-                           applied files
-  --right RIGHT            The right delimiter to use for rendering partially
-                           applied files
+Arguments:
+  <EXPRESSION>  Expression to evaluate, e.g. `greet name` or `\x -> wrap x`
+
+Options:
+  -t, --type           Print the type of EXPRESSION instead of evaluating it
+  -v, --verbose        Report what ltext is doing on stderr
+  -r, --raw <FILE>     Treat FILE as plain text, even if its first line looks like a header
+      --left <LEFT>    Left delimiter for rendering a partially applied result
+      --right <RIGHT>  Right delimiter for rendering a partially applied result
+  -h, --help           Print help (see more with '--help')
+  -V, --version        Print version
 
 $> ltext --type "\a -> a"
-
 a0 -> a0
+```
+
+For example, given a file `greet`:
+
+```
+{{ name }}
+Hello,
+{{ name }}
+!
+```
+
+and a file `name` containing `World`, `ltext "greet name"` prints:
+
+```
+Hello,
+World
+!
+```
+
+Applying fewer arguments than a template takes leaves a template.
+`--left` and `--right` give the delimiters to render it with:
+
+```bash
+$> ltext --left '<<' --right '>>' "\n -> greet n"
+<< n >>
+Hello,
+<< n >>
+!
 ```
 
 ## How It Works
