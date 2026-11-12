@@ -7,7 +7,7 @@
 
 These directories are the source of truth; the AUR repositories are copies.
 
-## First publish
+## First publish (done for 0.2.0)
 
 AUR packages are created by pushing to them. You need an
 [AUR account](https://aur.archlinux.org/register) with your SSH public key

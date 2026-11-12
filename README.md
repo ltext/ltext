@@ -30,6 +30,9 @@ lists the checksum of every asset. macOS may quarantine a downloaded binary;
 
 With Nix: `nix run github:ltext/ltext -- --help`, or `nix profile add github:ltext/ltext`.
 
+On Arch Linux, from the AUR: [`ltext`](https://aur.archlinux.org/packages/ltext) (builds from source) or
+[`ltext-bin`](https://aur.archlinux.org/packages/ltext-bin) (prebuilt), e.g. `yay -S ltext-bin`.
+
 `ltext --version` prints the release version, e.g. `ltext 0.2.0`. A build of
 an untagged commit prints the `git describe` form instead, e.g.
 `ltext 0.2.0-3-g1a2b3c4`: 3 commits after 0.2.0, at commit `1a2b3c4`.
