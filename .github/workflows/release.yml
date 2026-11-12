@@ -13,6 +13,7 @@ on:
     paths:
       - .github/workflows/release.yml
       - .cargo/config.toml
+      - packaging/container/Dockerfile
       - build.rs
       - Cargo.toml
       - Cargo.lock
@@ -158,6 +159,68 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "ltext ${GITHUB_REF_NAME#v}" --notes-file notes.md
+
+  container:
+    name: container image
+    needs: [build, release]
+    # Runs on PRs too (release is skipped there): build and smoke-test only.
+    if: >-
+      always() && needs.build.result == 'success' &&
+      (needs.release.result == 'success' || needs.release.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/ltext/ltext
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ltext-*-unknown-linux-musl
+          path: dist
+          merge-multiple: true
+      - name: Lay out the build context
+        run: |
+          set -euo pipefail
+          mkdir -p ctx/amd64 ctx/arm64
+          cp LICENSE ctx/
+          for pair in amd64:x86_64 arm64:aarch64; do
+            arch=${pair%%:*} triple=${pair#*:}-unknown-linux-musl
+            tarball=$(ls dist/ltext-*-"$triple".tar.gz)
+            tar xzf "$tarball" -C "ctx/$arch" --strip-components=1 --wildcards '*/ltext'
+            version=$(basename "$tarball" "-$triple.tar.gz"); version=${version#ltext-}
+          done
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          ls -l ctx/*/
+      - name: Smoke test (amd64)
+        run: |
+          docker build -q -t ltext-smoke --build-arg VERSION="$VERSION" -f packaging/container/Dockerfile ctx
+          docker image ls ltext-smoke --format 'image size: {{.Size}}'
+          test "$(docker run --rm ltext-smoke --version)" = "ltext $VERSION"
+          printf '{{ name }}\nHello,\n{{ name }}\n' > greet && printf container > name
+          test "$(docker run --rm -v "$PWD:/work" ltext-smoke 'greet name')" = "$(printf 'Hello,\ncontainer')"
+      - name: Build both architectures, and push for releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tags=(--tag "$IMAGE:$VERSION")
+          push=()
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            tags+=(--tag "$IMAGE:${VERSION%.*}" --tag "$IMAGE:latest")
+            push=(--push)
+          fi
+          docker buildx create --use >/dev/null
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="$VERSION" -f packaging/container/Dockerfile \
+            "${tags[@]}" "${push[@]}" ctx
+      - name: Check the pushed image
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          test "$(docker run --rm "$IMAGE:$VERSION" --version)" = "ltext $VERSION"
 
   crates-io:
     name: publish to crates.io

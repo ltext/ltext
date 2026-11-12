@@ -33,6 +33,9 @@ With Homebrew (macOS, Linux): `brew install ltext/tap/ltext`.
 With Cargo: `cargo install ltext` builds it from [crates.io](https://crates.io/crates/ltext);
 `cargo binstall ltext` fetches the prebuilt binary instead.
 
+As a container (~1 MB, amd64 and arm64): `docker run --rm -v "$PWD:/work" ghcr.io/ltext/ltext 'greet name'`,
+or copy it into your own image with `COPY --from=ghcr.io/ltext/ltext /usr/local/bin/ltext /usr/local/bin/`.
+
 With Nix: `nix run github:ltext/ltext -- --help`, or `nix profile add github:ltext/ltext`.
 
 On Arch Linux, from the AUR: [`ltext`](https://aur.archlinux.org/packages/ltext) (builds from source) or
