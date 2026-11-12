@@ -100,16 +100,19 @@ fn template(holes: usize) -> String {
 
 #[test]
 fn template_with_many_holes() {
-    let dir = std::env::temp_dir().join(format!("ltext-deep-{}", std::process::id()));
+    // File names are variables in the expression, so use a relative path with
+    // forward slashes: a Windows absolute path's backslashes would be lambdas.
+    // Tests run in the package directory.
+    let rel = format!("target/ltext-deep-{}", std::process::id());
+    let dir = std::path::PathBuf::from(&rel);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("tpl"), template(100_000)).unwrap();
     std::fs::write(dir.join("val"), "v\n").unwrap();
 
     // Through the library, on a small stack.
-    let d = dir.clone();
     on_small_stack(move || {
-        let tpl = d.join("tpl").to_str().unwrap().to_owned();
-        let val = d.join("val").to_str().unwrap().to_owned();
+        let tpl = format!("{rel}/tpl");
+        let val = format!("{rel}/val");
         let e = parse_expr(&format!("{tpl} {val}")).unwrap();
         let mut files = Loader::new(&[], false);
         type_of_top_level(&e, &mut files).unwrap();
