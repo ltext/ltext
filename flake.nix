@@ -10,7 +10,9 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        ltext = pkgs.callPackage ./default.nix { };
+        ltext = pkgs.callPackage ./default.nix {
+          rev = self.shortRev or self.dirtyShortRev or null;
+        };
       in {
         packages = {
           inherit ltext;

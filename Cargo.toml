@@ -1,6 +1,6 @@
 [package]
 name = "ltext"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 description = "λtext: general-purpose text-file templating utility"
@@ -15,3 +15,34 @@ unicode-general-category = "1.1.0"
 
 [dev-dependencies]
 proptest = "1.12.0"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
+# `cargo deb` (cargo-deb) and `cargo generate-rpm` (cargo-generate-rpm) build
+# the Linux packages attached to GitHub releases; see .github/workflows/release.yml.
+[package.metadata.deb]
+maintainer = "Athan Clark <athan.clark@gmail.com>"
+copyright = "2014-2026, Athan Clark"
+license-file = ["LICENSE", "0"]
+section = "text"
+priority = "optional"
+extended-description = """\
+λtext is a templating tool for any text file. It treats files as functions:
+a file whose first line is a header like {{ x y }} is a function of x and y,
+and an expression on the command line applies files to other files. A
+Hindley-Milner type checker catches mistakes before anything is rendered."""
+assets = [
+  ["target/release/ltext", "usr/bin/", "755"],
+  ["README.md", "usr/share/doc/ltext/README.md", "644"],
+]
+
+[package.metadata.generate-rpm]
+summary = "General-purpose text-file templating utility"
+assets = [
+  { source = "target/release/ltext", dest = "/usr/bin/ltext", mode = "755" },
+  { source = "LICENSE", dest = "/usr/share/licenses/ltext/LICENSE", mode = "644", doc = true },
+  { source = "README.md", dest = "/usr/share/doc/ltext/README.md", mode = "644", doc = true },
+]

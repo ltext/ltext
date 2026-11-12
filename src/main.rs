@@ -17,7 +17,7 @@ use ltext::typecheck::{pp_type, type_of_top_level};
 /// `{{ x y }}` is a function of its parameters. See https://ltext.github.io/
 /// for more details.
 #[derive(Parser, Debug)]
-#[command(name = "ltext", version)]
+#[command(name = "ltext", bin_name = "ltext", version = env!("LTEXT_VERSION"))]
 struct Opts {
     /// Expression to evaluate, e.g. `greet name` or `\x -> wrap x`
     #[arg(value_name = "EXPRESSION")]

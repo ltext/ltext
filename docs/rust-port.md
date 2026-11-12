@@ -224,7 +224,7 @@ up while fixing them.
 4. ✅ **Cut over**: move the crate to the root and delete the Haskell sources. Then
    switch Nix to `rustPlatform.buildRustPackage`, switch the snap to the `rust`
    plugin (re-check the classic/strict confinement plugs), and update the
-   README. (Version still 0.1.5; tagging a 0.2.0 release is still to do.)
+   README. Released as 0.2.0, with prebuilt packages from `.github/workflows/release.yml`.
 5. ✅ **Fix the bugs above** in separate commits, re-recording only the affected
    golden cases (`golden/run.sh --update --only …` on the Rust binary). Each
    diff then shows exactly what behaviour changed.

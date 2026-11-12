@@ -63,5 +63,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: cachix/install-nix-action@v31
+      # Optional binary cache: set the repository variable CACHIX_CACHE to the
+      # cache name and the secret CACHIX_AUTH_TOKEN to a token that can push.
+      - name: Use Cachix cache
+        if: vars.CACHIX_CACHE != ''
+        run: |
+          nix-env --quiet -iA cachix -f https://cachix.org/api/v1/install
+          cachix use "${{ vars.CACHIX_CACHE }}"
       # The derivation also runs the unit, property and golden tests.
       - run: nix build --print-build-logs
+      - name: Push to Cachix
+        if: vars.CACHIX_CACHE != '' && github.event_name == 'push'
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          if [[ -z "$CACHIX_AUTH_TOKEN" ]]; then
+            echo "::warning::CACHIX_AUTH_TOKEN isn't set; not pushing"
+          else
+            cachix push "${{ vars.CACHIX_CACHE }}" ./result
+          fi
