@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::Error;
 use crate::document::{fetch_document, raw_document};
+use crate::eval::{free_vars, substitute};
 use crate::expr::Expr;
 
 /// Reads and parses each referenced file once, shared by type checking and
@@ -61,5 +62,15 @@ impl Loader {
         };
         self.cache.insert(name.to_owned(), e.clone());
         Ok(e)
+    }
+
+    /// Replace each free variable of a command-line expression with the
+    /// contents of the file it names.
+    pub fn resolve(&mut self, e: &Expr) -> Result<Expr, Error> {
+        let mut out = e.clone();
+        for f in free_vars(e) {
+            out = substitute(&f, &self.load(&f)?, &out);
+        }
+        Ok(out)
     }
 }

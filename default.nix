@@ -22,6 +22,7 @@ rustPlatform.buildRustPackage {
       ./build.rs
       ./src
       ./tests
+      ./benches
       ./golden
     ];
   };
