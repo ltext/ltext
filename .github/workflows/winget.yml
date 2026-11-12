@@ -1,0 +1,115 @@
+name: winget
+
+# Submits ltext.ltext manifests for a released tag to microsoft/winget-pkgs:
+# generates them with packaging/winget/generate.sh, validates them against the
+# official schemas, and opens the PR with Microsoft's wingetcreate. Skips
+# versions already in winget-pkgs.
+#
+# Called by release.yml after each release; can also be run by hand. Needs the
+# secret WINGET_TOKEN: a classic GitHub token with the public_repo scope, whose
+# account gets a fork of winget-pkgs to open PRs from.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Released tag to submit, e.g. v0.2.1
+        type: string
+        required: true
+      publish:
+        description: Open the winget-pkgs PR (otherwise generate and validate only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: winget
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag }}
+
+jobs:
+  manifests:
+    name: generate and validate manifests
+    runs-on: ubuntu-latest
+    outputs:
+      submit: ${{ steps.check.outputs.submit }}
+      title: ${{ steps.check.outputs.title }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Generate
+        run: packaging/winget/generate.sh "$TAG" "manifests/${TAG#v}"
+      - name: Validate against the winget schemas
+        run: |
+          pip install --quiet jsonschema pyyaml
+          base=https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.10.0
+          python3 - "manifests/${TAG#v}" "$base" <<'PY'
+          import json, sys, urllib.request, jsonschema, yaml
+          d, base = sys.argv[1], sys.argv[2]
+          bad = False
+          for kind, f in [("version", "ltext.ltext.yaml"),
+                          ("installer", "ltext.ltext.installer.yaml"),
+                          ("defaultLocale", "ltext.ltext.locale.en-US.yaml")]:
+              schema = json.load(urllib.request.urlopen(f"{base}/manifest.{kind}.1.10.0.json"))
+              doc = yaml.safe_load(open(f"{d}/{f}"))
+              if "ReleaseDate" in doc:
+                  doc["ReleaseDate"] = str(doc["ReleaseDate"])
+              for e in jsonschema.Draft7Validator(schema).iter_errors(doc):
+                  print(f"::error file={f}::{e.message}")
+                  bad = True
+              print(f, "ok")
+          sys.exit(bad)
+          PY
+      - name: Check winget-pkgs for this version
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH: ${{ inputs.publish != false }}
+        run: |
+          ver=${TAG#v}
+          base=repos/microsoft/winget-pkgs/contents/manifests/l/ltext/ltext
+          if gh api "$base/$ver" --silent 2>/dev/null; then
+            echo "ltext.ltext $ver is already in winget-pkgs"
+            echo "submit=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$PUBLISH" != true ]]; then
+            echo "Dry run: not submitting"
+            echo "submit=false" >> "$GITHUB_OUTPUT"
+          else
+            if gh api "$base" --silent 2>/dev/null; then kind="New version"; else kind="New package"; fi
+            echo "submit=true" >> "$GITHUB_OUTPUT"
+            echo "title=$kind: ltext.ltext version $ver" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: winget-manifests
+          path: manifests/
+          if-no-files-found: error
+
+  submit:
+    name: open winget-pkgs PR
+    needs: manifests
+    if: needs.manifests.outputs.submit == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: winget-manifests
+          path: manifests
+      - name: Submit with wingetcreate
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TITLE: ${{ needs.manifests.outputs.title }}
+        run: |
+          if (-not $env:WINGET_TOKEN) { Write-Output "::error::secret WINGET_TOKEN isn't set"; exit 1 }
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          $dir = "manifests/$($env:TAG.TrimStart('v'))"
+          .\wingetcreate.exe submit --prtitle "$env:TITLE" --token "$env:WINGET_TOKEN" $dir
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
