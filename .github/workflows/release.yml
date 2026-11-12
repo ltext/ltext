@@ -12,6 +12,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/release.yml
+      - .cargo/config.toml
       - build.rs
       - Cargo.toml
       - Cargo.lock
@@ -87,6 +88,14 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "ltext $version"
+
+      - name: Check the Windows binary needs no C runtime DLLs
+        if: runner.os == 'Windows'
+        run: |
+          if grep -aiqE 'vcruntime[0-9]*\.dll|api-ms-win-crt-' "$EXE"; then
+            echo "::error::$EXE links the C runtime dynamically"
+            exit 1
+          fi
 
       - name: Unit and property tests
         if: ${{ !matrix.cross }}
