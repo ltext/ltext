@@ -40,9 +40,10 @@ jobs:
     container: archlinux:base-devel
     env:
       TAG: ${{ inputs.tag }}
-      # Pushing is on unless a manual run turned it off (workflow_call has no
-      # `publish` input).
-      PUBLISH: ${{ inputs.publish != false }}
+      # Push unless a manual run turned it off. (Don't test `inputs.publish !=
+      # false`: under workflow_call the input is null, which compares equal to
+      # false.)
+      PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
     steps:
       - name: Install tools
         run: pacman -Syu --noconfirm --needed git openssh rust namcap
