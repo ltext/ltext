@@ -28,6 +28,8 @@ Unpack an archive and put `ltext` somewhere on your `PATH`. `SHA256SUMS`
 lists the checksum of every asset. macOS may quarantine a downloaded binary;
 `xattr -d com.apple.quarantine ltext` clears that.
 
+With Homebrew (macOS, Linux): `brew install ltext/tap/ltext`.
+
 With Cargo: `cargo install ltext` builds it from [crates.io](https://crates.io/crates/ltext);
 `cargo binstall ltext` fetches the prebuilt binary instead.
 
