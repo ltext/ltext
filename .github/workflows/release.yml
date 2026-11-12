@@ -257,3 +257,11 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
     secrets: inherit
+
+  winget:
+    name: winget
+    needs: release
+    uses: ./.github/workflows/winget.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
