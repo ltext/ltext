@@ -204,6 +204,52 @@ jobs:
           -A "ltext-release (github.com/ltext/ltext)"
           -H "Authorization: Bearer $CARGO_REGISTRY_TOKEN"
 
+  homebrew:
+    name: Homebrew tap
+    needs: release
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_ANALYTICS: 1
+    steps:
+      # HOMEBREW_TAP_KEY: an SSH deploy key with write access to
+      # ltext/homebrew-tap.
+      - name: Check for the tap deploy key
+        env:
+          KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
+        run: |
+          if [[ -z "$KEY" ]]; then
+            echo "::warning::HOMEBREW_TAP_KEY isn't set; not updating ltext/homebrew-tap"
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/checkout@v7
+        if: env.SKIP != 'true'
+        with:
+          repository: ltext/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_KEY }}
+      - name: Regenerate the formula
+        if: env.SKIP != 'true'
+        run: |
+          bin/update-formula "$GITHUB_REF_NAME"
+          if git diff --quiet; then
+            echo "Formula already at ${GITHUB_REF_NAME#v}"
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          else
+            git diff
+            git -c user.name="Athan Clark" -c user.email="athan.clark@gmail.com" \
+              commit -qam "ltext ${GITHUB_REF_NAME#v}"
+          fi
+      - name: Install, test and audit
+        if: env.SKIP != 'true'
+        run: |
+          brew tap ltext/tap "$GITHUB_WORKSPACE"
+          brew install ltext/tap/ltext
+          brew test ltext/tap/ltext
+          brew audit --strict --online ltext/tap/ltext
+      - name: Push to the tap
+        if: env.SKIP != 'true'
+        run: git push origin HEAD:main
+
   aur:
     name: AUR
     needs: release
