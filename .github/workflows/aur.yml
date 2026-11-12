@@ -1,0 +1,118 @@
+name: AUR
+
+# Publishes packaging/aur/{ltext,ltext-bin} to the AUR for a released tag:
+# fills in pkgver and the checksums of that release, builds and tests both
+# packages on Arch, regenerates .SRCINFO, and pushes. Nothing is pushed unless
+# both packages build, and re-running for an already-published version is a
+# no-op.
+#
+# Called by release.yml after each release; can also be run by hand.
+# Needs the secret AUR_SECRET: an SSH private key with push access to both
+# AUR packages.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Released tag to publish, e.g. v0.2.0
+        type: string
+        required: true
+      publish:
+        description: Push to the AUR (otherwise build and test only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aur
+  cancel-in-progress: false
+
+jobs:
+  aur:
+    name: publish to AUR
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    env:
+      TAG: ${{ inputs.tag }}
+      # Pushing is on unless a manual run turned it off (workflow_call has no
+      # `publish` input).
+      PUBLISH: ${{ inputs.publish != false }}
+    steps:
+      - name: Install tools
+        run: pacman -Syu --noconfirm --needed git openssh rust namcap
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Fill in version and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad tag $TAG"; exit 1; }
+          ver=${TAG#v}
+          repo=https://github.com/${{ github.repository }}
+
+          src_sum=$(curl -fsSL "$repo/archive/$TAG.tar.gz" | sha256sum | cut -d' ' -f1)
+          sums=$(curl -fsSL "$repo/releases/download/$TAG/SHA256SUMS")
+          bin_sum() { awk -v f="ltext-$ver-$1-unknown-linux-musl.tar.gz" '$2 == f { print $1 }' <<< "$sums"; }
+          x86=$(bin_sum x86_64) arm=$(bin_sum aarch64)
+          [[ -n "$x86" && -n "$arm" ]] || { echo "::error::musl tarballs missing from $TAG's SHA256SUMS"; exit 1; }
+
+          for p in packaging/aur/*/PKGBUILD; do
+            sed -i -e "s/^pkgver=.*/pkgver=$ver/" -e "s/^pkgrel=.*/pkgrel=1/" "$p"
+          done
+          sed -i "s/^sha256sums=.*/sha256sums=('$src_sum')/" packaging/aur/ltext/PKGBUILD
+          sed -i -e "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('$x86')/" \
+                 -e "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('$arm')/" packaging/aur/ltext-bin/PKGBUILD
+          git --no-pager diff || true
+
+      - name: Build, test and lint
+        run: |
+          useradd -m builder
+          cp -r packaging/aur /home/builder/aur && chown -R builder /home/builder/aur
+          for p in ltext ltext-bin; do
+            su builder -c "cd ~/aur/$p && makepkg -f --noconfirm && makepkg --printsrcinfo > .SRCINFO"
+            namcap ~builder/aur/$p/PKGBUILD ~builder/aur/$p/*.pkg.tar.zst || true
+            pacman -U --noconfirm ~builder/aur/$p/*.pkg.tar.zst
+            test "$(ltext --version)" = "ltext ${TAG#v}"
+            pacman -R --noconfirm "$p"
+          done
+
+      - name: Push to the AUR
+        if: env.PUBLISH == 'true'
+        shell: bash
+        env:
+          AUR_SECRET: ${{ secrets.AUR_SECRET }}
+          # Pinned host key; matches the fingerprint published on
+          # https://aur.archlinux.org (SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4).
+          AUR_HOST_KEY: aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN
+        run: |
+          set -euo pipefail
+          [[ -n "$AUR_SECRET" ]] || { echo "::error::secret AUR_SECRET isn't set"; exit 1; }
+          umask 077
+          ssh_dir=$(mktemp -d)
+          printf '%s\n' "$AUR_SECRET" > "$ssh_dir/key"
+          printf '%s\n' "$AUR_HOST_KEY" > "$ssh_dir/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $ssh_dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes"
+
+          for p in ltext ltext-bin; do
+            dir=$(mktemp -d)
+            git clone -q "ssh://aur@aur.archlinux.org/$p.git" "$dir"
+            cp /home/builder/aur/$p/PKGBUILD /home/builder/aur/$p/.SRCINFO "$dir/"
+            git -C "$dir" add PKGBUILD .SRCINFO
+            if git -C "$dir" diff --cached --quiet; then
+              echo "$p: already up to date"
+              continue
+            fi
+            git -C "$dir" -c user.name="Athan Clark" -c user.email="athan.clark@gmail.com" \
+              commit -q -m "Update to ${TAG#v}"
+            git -C "$dir" push -q origin HEAD:master
+            echo "$p: published ${TAG#v}"
+          done

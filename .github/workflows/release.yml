@@ -149,3 +149,11 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "ltext ${GITHUB_REF_NAME#v}" --notes-file notes.md
+
+  aur:
+    name: AUR
+    needs: release
+    uses: ./.github/workflows/aur.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
