@@ -3,10 +3,16 @@
 //! Only well-typed expressions are evaluated. The type system has no recursion
 //! (self-application fails the occurs check), so every well-typed expression
 //! has a normal form and evaluation terminates.
+//!
+//! Like the rest of the crate, these functions use explicit stacks instead of
+//! recursing once per node, so deep expressions can't overflow the stack.
 
-use std::collections::BTreeSet;
+use smallvec::smallvec;
 
-use crate::expr::Expr;
+use crate::Stack;
+use std::collections::{BTreeSet, HashMap};
+
+use crate::expr::{Expr, Node};
 
 /// Reduce to normal form, including under lambdas, and merge adjacent text.
 pub fn evaluate(e: &Expr) -> Expr {
@@ -15,95 +21,205 @@ pub fn evaluate(e: &Expr) -> Expr {
 
 /// [`evaluate`], taking ownership so that text is moved rather than copied.
 pub fn eval(e: Expr) -> Expr {
-    match e {
-        Expr::Abs(n, body) => Expr::abs(n, eval(*body)),
-        Expr::App(f, a) => match eval(*f) {
-            Expr::Abs(n, body) => {
-                let a = eval(*a);
-                eval(substitute_owned(&n, a, *body))
+    /// What to do with a value once it's computed.
+    enum Then {
+        /// Wrap it in a lambda with this parameter.
+        Abs(String),
+        /// It's a function: evaluate this argument next.
+        Apply(Expr),
+        /// It's the argument to a lambda with this parameter and body.
+        Beta(String, Expr),
+        /// It's the argument to this function, which isn't a lambda.
+        App(Expr),
+        /// It's part of a chain of text.
+        Concat(Box<Chain>),
+    }
+    let mut stack: Stack<Then> = Stack::new();
+    let mut todo = e;
+    loop {
+        // Go down to the first part of `todo` that is already a value.
+        let mut v = loop {
+            todo = match todo {
+                Expr::Abs(..) | Expr::App(..) | Expr::Concat { .. } => todo,
+                v => break v,
+            };
+            match todo.into_node() {
+                Node::Abs(n, body) => {
+                    stack.push(Then::Abs(n));
+                    todo = body;
+                }
+                Node::App(f, a) => {
+                    stack.push(Then::Apply(a));
+                    todo = f;
+                }
+                Node::Concat {
+                    left,
+                    right,
+                    source,
+                    in_error,
+                } => {
+                    let (chain, tail) = Chain::new(left, right, source, in_error);
+                    stack.push(Then::Concat(Box::new(chain)));
+                    todo = tail;
+                }
+                Node::Var(_) | Node::Lit { .. } => unreachable!("handled above"),
             }
-            f2 => Expr::app(f2, eval(*a)),
-        },
-        Expr::Concat { .. } => eval_concat(e),
-        Expr::Var(_) | Expr::Lit { .. } => e,
+        };
+        // Go back up, until something else needs evaluating.
+        todo = loop {
+            match stack.pop() {
+                None => return v,
+                Some(Then::Abs(n)) => v = Expr::abs(n, v),
+                Some(Then::Apply(a)) => {
+                    if let Expr::Abs(..) = v {
+                        let Node::Abs(n, body) = v.into_node() else {
+                            unreachable!()
+                        };
+                        stack.push(Then::Beta(n, body));
+                    } else {
+                        stack.push(Then::App(v));
+                    }
+                    break a;
+                }
+                Some(Then::Beta(n, body)) => break substitute_owned(&n, v, body),
+                Some(Then::App(f)) => v = Expr::app(f, v),
+                Some(Then::Concat(mut chain)) => {
+                    chain.add(v);
+                    match chain.next() {
+                        Some(left) => {
+                            stack.push(Then::Concat(chain));
+                            break left;
+                        }
+                        None => v = chain.finish(),
+                    }
+                }
+            }
+        };
     }
 }
 
-/// Evaluate a chain of `Concat`s. Documents are right-nested chains, one link
-/// per text block or expression line, so this walks the chain with a loop
-/// instead of recursion, and builds merged text back to front so that each
-/// line is moved a bounded number of times.
-fn eval_concat(e: Expr) -> Expr {
-    // The left operands, with each link's source and error flag.
-    let mut links = Vec::new();
-    let mut tail = e;
-    while let Expr::Concat {
-        left,
-        right,
-        source,
-        in_error,
-    } = tail
-    {
-        links.push((*left, source, in_error));
-        tail = *right;
-    }
+/// Evaluating a chain of `Concat`s. Documents are right-nested chains, one
+/// link per text block or expression line. The tail is evaluated first, then
+/// the left operands from last to first, and text is merged back to front so
+/// that each line is moved a bounded number of times.
+struct Chain {
+    /// The left operands not yet evaluated, with each link's source and error
+    /// flag.
+    links: Vec<(Expr, String, bool)>,
+    /// The source and error flag of the link whose left operand is being
+    /// evaluated.
+    pending: Option<(String, bool)>,
+    /// The result so far, for the tail of the chain.
+    acc: Option<Acc>,
+}
 
-    // Merged text at the front of the result so far, in reverse line order,
-    // with the source and error flag of the link that produced it.
-    struct Text {
+enum Acc {
+    /// Merged text, in reverse line order, with the source and error flag of
+    /// the link that produced it.
+    Text {
         rev: Vec<String>,
         source: String,
         in_error: bool,
-    }
-    impl Text {
-        fn into_lit(mut self) -> Expr {
-            self.rev.reverse();
-            Expr::lit(self.rev, self.source, self.in_error)
+    },
+    Other(Expr),
+}
+
+impl Acc {
+    fn into_expr(self) -> Expr {
+        match self {
+            Acc::Text {
+                mut rev,
+                source,
+                in_error,
+            } => {
+                rev.reverse();
+                Expr::lit(rev, source, in_error)
+            }
+            Acc::Other(e) => e,
         }
     }
-    enum Acc {
-        Text(Text),
-        Other(Expr),
+}
+
+impl Chain {
+    /// Split a chain into its links and the expression at the end.
+    fn new(left: Expr, right: Expr, source: String, in_error: bool) -> (Chain, Expr) {
+        let mut links = vec![(left, source, in_error)];
+        let mut tail = right;
+        while let Expr::Concat { .. } = tail {
+            let Node::Concat {
+                left,
+                right,
+                source,
+                in_error,
+            } = tail.into_node()
+            else {
+                unreachable!()
+            };
+            links.push((left, source, in_error));
+            tail = right;
+        }
+        let chain = Chain {
+            links,
+            pending: None,
+            acc: None,
+        };
+        (chain, tail)
     }
-    impl Acc {
-        fn new(e: Expr) -> Acc {
-            match e {
-                Expr::Lit {
+
+    /// Add an evaluated operand to the front of the result: first the tail,
+    /// then each left operand.
+    fn add(&mut self, v: Expr) {
+        self.acc = Some(match (self.acc.take(), self.pending.take()) {
+            (None, _) => match v.into_node() {
+                Node::Lit {
                     mut content,
                     source,
                     in_error,
                 } => {
                     content.reverse();
-                    Acc::Text(Text {
+                    Acc::Text {
                         rev: content,
                         source,
                         in_error,
-                    })
+                    }
                 }
-                e => Acc::Other(e),
-            }
-        }
-        fn into_expr(self) -> Expr {
-            match self {
-                Acc::Text(t) => t.into_lit(),
-                Acc::Other(e) => e,
-            }
-        }
+                v => Acc::Other(v.into()),
+            },
+            (Some(acc), Some((source, in_error))) => match (v, acc) {
+                (
+                    v @ Expr::Lit { .. },
+                    Acc::Text {
+                        mut rev,
+                        source: _,
+                        in_error: _,
+                    },
+                ) => {
+                    let Node::Lit { content, .. } = v.into_node() else {
+                        unreachable!()
+                    };
+                    rev.extend(content.into_iter().rev());
+                    Acc::Text {
+                        rev,
+                        source,
+                        in_error,
+                    }
+                }
+                (v, acc) => Acc::Other(Expr::concat(v, acc.into_expr(), source, in_error)),
+            },
+            (Some(_), None) => unreachable!("an operand without a link"),
+        });
     }
 
-    let mut acc = Acc::new(eval(tail));
-    for (left, source, in_error) in links.into_iter().rev() {
-        acc = match (eval(left), acc) {
-            (Expr::Lit { content, .. }, Acc::Text(mut t)) => {
-                t.rev.extend(content.into_iter().rev());
-                t.source = source;
-                t.in_error = in_error;
-                Acc::Text(t)
-            }
-            (l, acc) => Acc::Other(Expr::concat(l, acc.into_expr(), source, in_error)),
-        };
+    /// The next left operand to evaluate, if any.
+    fn next(&mut self) -> Option<Expr> {
+        let (left, source, in_error) = self.links.pop()?;
+        self.pending = Some((source, in_error));
+        Some(left)
     }
-    acc.into_expr()
+
+    fn finish(self) -> Expr {
+        self.acc.expect("the tail was added").into_expr()
+    }
 }
 
 /// Replace the free occurrences of `n` in `e` with `x`, renaming bound
@@ -123,21 +239,29 @@ pub fn substitute_owned(n: &str, x: Expr, e: Expr) -> Expr {
         remaining,
         fv_x: None,
     }
-    .go(e)
+    .run(e)
 }
 
 /// The number of free occurrences of `n` in `e`.
 fn count_free(n: &str, e: &Expr) -> usize {
-    match e {
-        Expr::Var(m) => usize::from(m == n),
-        Expr::Lit { .. } => 0,
-        Expr::Abs(m, _) if m == n => 0,
-        Expr::Abs(_, body) => count_free(n, body),
-        Expr::App(a, b)
-        | Expr::Concat {
-            left: a, right: b, ..
-        } => count_free(n, a) + count_free(n, b),
+    let mut count = 0;
+    let mut todo: Stack<_> = smallvec![e];
+    while let Some(e) = todo.pop() {
+        match e {
+            Expr::Var(m) => count += usize::from(m == n),
+            Expr::Lit { .. } => {}
+            Expr::Abs(m, _) if m == n => {}
+            Expr::Abs(_, body) => todo.push(body),
+            Expr::App(a, b)
+            | Expr::Concat {
+                left: a, right: b, ..
+            } => {
+                todo.push(b);
+                todo.push(a);
+            }
+        }
     }
+    count
 }
 
 struct Subst<'a> {
@@ -161,44 +285,48 @@ impl Subst<'_> {
         .expect("used after the last occurrence")
     }
 
-    fn go(&mut self, e: Expr) -> Expr {
-        if self.remaining == 0 {
-            return e;
-        }
+    /// Substitute in place. Only the replaced variables and renamed
+    /// lambdas change; everything else stays where it is.
+    fn run(&mut self, mut e: Expr) -> Expr {
         let n = self.n;
-        match e {
-            Expr::Var(m) if m == n => self.replacement(),
-            Expr::Var(_) | Expr::Lit { .. } => e,
-            Expr::App(f, a) => {
-                let f = self.go(*f);
-                Expr::app(f, self.go(*a))
+        let mut todo: Stack<&mut Expr> = smallvec![&mut e];
+        while let Some(e) = todo.pop() {
+            if self.remaining == 0 {
+                break;
             }
-            Expr::Concat {
-                left,
-                right,
-                source,
-                in_error,
-            } => {
-                let left = self.go(*left);
-                Expr::concat(left, self.go(*right), source, in_error)
-            }
-            Expr::Abs(ref m, _) if m == n => e,
-            Expr::Abs(m, body) => {
-                // `remaining > 0`, so `x` hasn't been moved out yet.
-                let x = self.x.as_ref().expect("x is present");
-                let fvs = self.fv_x.get_or_insert_with(|| free_vars(x));
-                if fvs.contains(&m) && count_free(n, &body) > 0 {
-                    let mut avoid = fvs.clone();
-                    avoid.extend(free_vars(&body));
-                    avoid.insert(n.to_owned());
-                    let m2 = fresh_name(&m, &avoid);
-                    let body = substitute_owned(&m, Expr::var(m2.clone()), *body);
-                    Expr::abs(m2, self.go(body))
-                } else {
-                    Expr::abs(m, self.go(*body))
+            match e {
+                Expr::Var(m) if m == n => *e = self.replacement(),
+                Expr::Var(_) | Expr::Lit { .. } => {}
+                Expr::App(f, a)
+                | Expr::Concat {
+                    left: f, right: a, ..
+                } => {
+                    todo.push(a);
+                    todo.push(f);
+                }
+                // `n` is shadowed.
+                Expr::Abs(m, _) if m == n => {}
+                Expr::Abs(m, body) => {
+                    // `remaining > 0`, so `x` hasn't been moved out yet.
+                    let x = self.x.as_ref().expect("x is present");
+                    let fvs = self.fv_x.get_or_insert_with(|| free_vars(x));
+                    if fvs.contains(m) && count_free(n, body) > 0 {
+                        let mut avoid = fvs.clone();
+                        avoid.extend(free_vars(body));
+                        avoid.insert(n.to_owned());
+                        let m2 = fresh_name(m, &avoid);
+                        // A separate substitution, which only nests again if
+                        // the body binds the fresh name too.
+                        let old = std::mem::replace(&mut **body, Expr::var(""));
+                        **body = substitute_owned(m, Expr::var(m2.clone()), old);
+                        *m = m2;
+                    }
+                    todo.push(body);
                 }
             }
         }
+        drop(todo);
+        e
     }
 }
 
@@ -212,23 +340,40 @@ fn fresh_name(base: &str, avoid: &BTreeSet<String>) -> String {
 
 /// Free variables, sorted so that file resolution happens in a stable order.
 pub fn free_vars(e: &Expr) -> BTreeSet<String> {
-    match e {
-        Expr::Abs(n, body) => {
-            let mut s = free_vars(body);
-            s.remove(n);
-            s
-        }
-        Expr::App(a, b)
-        | Expr::Concat {
-            left: a, right: b, ..
-        } => {
-            let mut s = free_vars(a);
-            s.extend(free_vars(b));
-            s
-        }
-        Expr::Var(n) => BTreeSet::from([n.clone()]),
-        Expr::Lit { .. } => BTreeSet::new(),
+    enum Step<'a> {
+        Visit(&'a Expr),
+        Unbind(&'a str),
     }
+    let mut out = BTreeSet::new();
+    // How many enclosing lambdas bind each name.
+    let mut bound: HashMap<&str, usize> = HashMap::new();
+    let mut steps: Stack<_> = smallvec![Step::Visit(e)];
+    while let Some(step) = steps.pop() {
+        match step {
+            Step::Visit(Expr::Abs(n, body)) => {
+                *bound.entry(n).or_default() += 1;
+                steps.push(Step::Unbind(n));
+                steps.push(Step::Visit(body));
+            }
+            Step::Visit(
+                Expr::App(a, b)
+                | Expr::Concat {
+                    left: a, right: b, ..
+                },
+            ) => {
+                steps.push(Step::Visit(b));
+                steps.push(Step::Visit(a));
+            }
+            Step::Visit(Expr::Var(n)) => {
+                if bound.get(n.as_str()).is_none_or(|&k| k == 0) {
+                    out.insert(n.clone());
+                }
+            }
+            Step::Visit(Expr::Lit { .. }) => {}
+            Step::Unbind(n) => *bound.get_mut(n).expect("bound") -= 1,
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -272,7 +417,7 @@ mod tests {
         let chain = (0..1_000).rev().fold(lit("end"), |acc, i| {
             Expr::concat(lit(&i.to_string()), acc, "f", false)
         });
-        match evaluate(&chain) {
+        match &evaluate(&chain) {
             Expr::Lit { content, .. } => {
                 assert_eq!(content.len(), 1_001);
                 assert_eq!(content[0], "0");

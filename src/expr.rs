@@ -10,11 +10,19 @@
 //! A name is one or more letters, digits, symbols or punctuation characters,
 //! except `\`, `(` and `)`. A name ends before `->`.
 
+use smallvec::smallvec;
+
+use crate::Stack;
 use std::fmt;
 
 use crate::chars::{is_ident_char, is_space, unlines};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+// None of the code below recurses once per node: documents and generated
+// expressions can be hundreds of thousands of nodes deep, which would
+// overflow the stack. Traversals use explicit stacks instead, and so do
+// `Clone` and `Drop`.
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
     Abs(String, Box<Expr>),
     App(Box<Expr>, Box<Expr>),
@@ -29,6 +37,26 @@ pub enum Expr {
     Concat {
         left: Box<Expr>,
         right: Box<Expr>,
+        source: String,
+        in_error: bool,
+    },
+}
+
+/// An expression taken apart, with its children unboxed. `Expr` implements
+/// `Drop`, so it can't be destructured by value; [`Expr::into_node`] does it
+/// instead.
+pub enum Node {
+    Abs(String, Expr),
+    App(Expr, Expr),
+    Var(String),
+    Lit {
+        content: Vec<String>,
+        source: String,
+        in_error: bool,
+    },
+    Concat {
+        left: Expr,
+        right: Expr,
         source: String,
         in_error: bool,
     },
@@ -59,6 +87,207 @@ impl Expr {
             in_error,
         }
     }
+
+    /// A placeholder left behind when a child is moved out; it owns nothing.
+    fn hole() -> Expr {
+        Expr::Var(String::new())
+    }
+
+    /// Take the expression apart, moving its children out.
+    pub fn into_node(mut self) -> Node {
+        let take = |b: &mut Box<Expr>| std::mem::replace(&mut **b, Expr::hole());
+        match &mut self {
+            Expr::Abs(n, b) => Node::Abs(std::mem::take(n), take(b)),
+            Expr::App(f, a) => Node::App(take(f), take(a)),
+            Expr::Var(n) => Node::Var(std::mem::take(n)),
+            Expr::Lit {
+                content,
+                source,
+                in_error,
+            } => Node::Lit {
+                content: std::mem::take(content),
+                source: std::mem::take(source),
+                in_error: *in_error,
+            },
+            Expr::Concat {
+                left,
+                right,
+                source,
+                in_error,
+            } => Node::Concat {
+                left: take(left),
+                right: take(right),
+                source: std::mem::take(source),
+                in_error: *in_error,
+            },
+        }
+    }
+}
+
+impl From<Node> for Expr {
+    fn from(n: Node) -> Expr {
+        match n {
+            Node::Abs(n, b) => Expr::abs(n, b),
+            Node::App(f, a) => Expr::app(f, a),
+            Node::Var(n) => Expr::Var(n),
+            Node::Lit {
+                content,
+                source,
+                in_error,
+            } => Expr::lit(content, source, in_error),
+            Node::Concat {
+                left,
+                right,
+                source,
+                in_error,
+            } => Expr::concat(left, right, source, in_error),
+        }
+    }
+}
+
+impl Expr {
+    fn is_leaf(&self) -> bool {
+        matches!(self, Expr::Var(_) | Expr::Lit { .. })
+    }
+}
+
+impl Drop for Expr {
+    fn drop(&mut self) {
+        // Move the children onto a stack, so that dropping them doesn't
+        // recurse; each one is emptied the same way before it's dropped.
+        // Leaves, and nodes whose children are leaves, need none of this.
+        fn push_children(e: &mut Expr, stack: &mut Vec<Expr>) {
+            let mut take = |b: &mut Box<Expr>| {
+                if !b.is_leaf() {
+                    stack.push(std::mem::replace(&mut **b, Expr::hole()));
+                }
+            };
+            match e {
+                Expr::Abs(_, b) => take(b),
+                Expr::App(l, r)
+                | Expr::Concat {
+                    left: l, right: r, ..
+                } => {
+                    take(l);
+                    take(r);
+                }
+                Expr::Var(_) | Expr::Lit { .. } => {}
+            }
+        }
+        let deep = match self {
+            Expr::Abs(_, b) => !b.is_leaf(),
+            Expr::App(l, r)
+            | Expr::Concat {
+                left: l, right: r, ..
+            } => !l.is_leaf() || !r.is_leaf(),
+            Expr::Var(_) | Expr::Lit { .. } => false,
+        };
+        if !deep {
+            return;
+        }
+        let mut stack = Vec::new();
+        push_children(self, &mut stack);
+        while let Some(mut e) = stack.pop() {
+            push_children(&mut e, &mut stack);
+        }
+    }
+}
+
+/// How deep the fast, recursive paths may go before switching to an
+/// explicit stack. Small enough to be safe on any thread's stack.
+const RECURSION_LIMIT: usize = 128;
+
+impl Clone for Expr {
+    fn clone(&self) -> Expr {
+        clone_at(self, 0)
+    }
+}
+
+/// Clone recursively near the root, which is fastest, and with an explicit
+/// stack below `RECURSION_LIMIT`.
+fn clone_at(e: &Expr, depth: usize) -> Expr {
+    if depth == RECURSION_LIMIT {
+        return clone_deep(e);
+    }
+    match e {
+        Expr::Abs(n, b) => Expr::abs(n.clone(), clone_at(b, depth + 1)),
+        Expr::App(f, a) => Expr::app(clone_at(f, depth + 1), clone_at(a, depth + 1)),
+        Expr::Var(n) => Expr::Var(n.clone()),
+        Expr::Lit {
+            content,
+            source,
+            in_error,
+        } => Expr::lit(content.clone(), source.clone(), *in_error),
+        Expr::Concat {
+            left,
+            right,
+            source,
+            in_error,
+        } => Expr::concat(
+            clone_at(left, depth + 1),
+            clone_at(right, depth + 1),
+            source.clone(),
+            *in_error,
+        ),
+    }
+}
+
+/// Clone with an explicit stack.
+fn clone_deep(e: &Expr) -> Expr {
+    enum Step<'a> {
+        Visit(&'a Expr),
+        Abs(&'a str),
+        App,
+        Concat(&'a str, bool),
+    }
+    let mut steps: Stack<_> = smallvec![Step::Visit(e)];
+    let mut done: Stack<Expr> = Stack::new();
+    while let Some(step) = steps.pop() {
+        match step {
+            Step::Visit(e) => match e {
+                Expr::Abs(n, b) => {
+                    steps.push(Step::Abs(n));
+                    steps.push(Step::Visit(b));
+                }
+                Expr::App(f, a) => {
+                    steps.push(Step::App);
+                    steps.push(Step::Visit(a));
+                    steps.push(Step::Visit(f));
+                }
+                Expr::Concat {
+                    left,
+                    right,
+                    source,
+                    in_error,
+                } => {
+                    steps.push(Step::Concat(source, *in_error));
+                    steps.push(Step::Visit(right));
+                    steps.push(Step::Visit(left));
+                }
+                Expr::Var(n) => done.push(Expr::Var(n.clone())),
+                Expr::Lit {
+                    content,
+                    source,
+                    in_error,
+                } => done.push(Expr::lit(content.clone(), source.clone(), *in_error)),
+            },
+            Step::Abs(n) => {
+                let b = done.pop().expect("body");
+                done.push(Expr::abs(n, b));
+            }
+            Step::App => {
+                let a = done.pop().expect("argument");
+                let f = done.pop().expect("function");
+                done.push(Expr::app(f, a));
+            }
+            Step::Concat(source, in_error) => {
+                let r = done.pop().expect("right");
+                let l = done.pop().expect("left");
+                done.push(Expr::concat(l, r, source, in_error));
+            }
+        }
+    }
+    done.pop().expect("result")
 }
 
 // ---------------------------------------------------------------------------
@@ -67,106 +296,110 @@ impl Expr {
 /// Render an expression as source text. For expressions built only from `Abs`,
 /// `App` and `Var`, `parse_expr(&pp_expr(e)) == Ok(e)`.
 pub fn pp_expr(e: &Expr) -> String {
+    enum Item<'a> {
+        Expr(&'a Expr),
+        Str(&'a str),
+    }
     let mut out = String::new();
-    pp(e, &mut out);
-    out
-}
-
-fn pp(e: &Expr, out: &mut String) {
-    match e {
-        Expr::Abs(x, body) => {
-            out.push('\\');
-            out.push_str(x);
-            out.push_str(" -> ");
-            pp(body, out);
+    // Items still to print, last first.
+    let mut todo: Stack<_> = smallvec![Item::Expr(e)];
+    fn parens<'a>(todo: &mut Stack<Item<'a>>, e: &'a Expr, yes: bool) {
+        if yes {
+            todo.push(Item::Str(")"));
         }
-        Expr::App(f, a) => {
-            pp_parens(f, matches!(**f, Expr::Abs(..)), out);
-            out.push(' ');
-            pp_parens(a, matches!(**a, Expr::Abs(..) | Expr::App(..)), out);
-        }
-        Expr::Var(x) => out.push_str(x),
-        Expr::Lit {
-            source,
-            in_error: true,
-            ..
-        }
-        | Expr::Concat {
-            source,
-            in_error: true,
-            ..
-        } => {
-            out.push_str("[text from \"");
-            out.push_str(source);
-            out.push_str("\"]");
-        }
-        Expr::Lit { content, .. } => out.push_str(&unlines(content)),
-        Expr::Concat { left, right, .. } => {
-            pp(left, out);
-            out.push(' ');
-            pp(right, out);
+        todo.push(Item::Expr(e));
+        if yes {
+            todo.push(Item::Str("("));
         }
     }
-}
-
-fn pp_parens(e: &Expr, parens: bool, out: &mut String) {
-    if parens {
-        out.push('(');
-    }
-    pp(e, out);
-    if parens {
-        out.push(')');
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Lexing
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Lexeme {
-    Lambda,
-    Arrow,
-    Ident(String),
-    Bracketed(Vec<Lexeme>),
-}
-
-/// Render tokens back as source text, for error messages.
-fn render(ls: &[Lexeme]) -> String {
-    let mut out = String::new();
-    for (i, l) in ls.iter().enumerate() {
-        if i > 0 && ls[i - 1] != Lexeme::Lambda {
-            out.push(' ');
-        }
-        match l {
-            Lexeme::Lambda => out.push('\\'),
-            Lexeme::Arrow => out.push_str("->"),
-            Lexeme::Ident(x) => out.push_str(x),
-            Lexeme::Bracketed(inner) => {
-                out.push('(');
-                out.push_str(&render(inner));
-                out.push(')');
+    while let Some(item) = todo.pop() {
+        let e = match item {
+            Item::Str(s) => {
+                out.push_str(s);
+                continue;
+            }
+            Item::Expr(e) => e,
+        };
+        match e {
+            Expr::Abs(x, body) => {
+                out.push('\\');
+                out.push_str(x);
+                out.push_str(" -> ");
+                todo.push(Item::Expr(body));
+            }
+            Expr::App(f, a) => {
+                parens(&mut todo, a, matches!(**a, Expr::Abs(..) | Expr::App(..)));
+                todo.push(Item::Str(" "));
+                parens(&mut todo, f, matches!(**f, Expr::Abs(..)));
+            }
+            Expr::Var(x) => out.push_str(x),
+            Expr::Lit {
+                source,
+                in_error: true,
+                ..
+            }
+            | Expr::Concat {
+                source,
+                in_error: true,
+                ..
+            } => {
+                out.push_str("[text from \"");
+                out.push_str(source);
+                out.push_str("\"]");
+            }
+            Expr::Lit { content, .. } => out.push_str(&unlines(content)),
+            Expr::Concat { left, right, .. } => {
+                todo.push(Item::Expr(right));
+                todo.push(Item::Str(" "));
+                todo.push(Item::Expr(left));
             }
         }
     }
     out
 }
 
-pub fn lex(input: &str) -> Result<Vec<Lexeme>, ParseError> {
-    let chars: Vec<char> = input.chars().collect();
-    let (ls, pos) = lex_many(&chars, 0)?;
-    match chars.get(pos) {
-        None => Ok(ls),
-        Some(')') => Err(ParseError::UnmatchedParen(pos + 1)),
-        Some(&c) => Err(ParseError::UnexpectedChar(c, pos + 1)),
-    }
+// ---------------------------------------------------------------------------
+// Lexing
+
+/// A token. Parentheses are tokens of their own; the lexer checks that they
+/// balance.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Lexeme {
+    Lambda,
+    Arrow,
+    Ident(String),
+    Open,
+    Close,
 }
 
-/// Lex tokens until the end of input or a character that can't start one.
-/// Returns the position of that character (after any spaces).
-fn lex_many(s: &[char], mut pos: usize) -> Result<(Vec<Lexeme>, usize), ParseError> {
+/// Render tokens back as source text, for error messages.
+fn render(ls: &[Lexeme]) -> String {
+    let mut out = String::new();
+    for (i, l) in ls.iter().enumerate() {
+        let space =
+            i > 0 && !matches!(ls[i - 1], Lexeme::Lambda | Lexeme::Open) && *l != Lexeme::Close;
+        if space {
+            out.push(' ');
+        }
+        match l {
+            Lexeme::Lambda => out.push('\\'),
+            Lexeme::Arrow => out.push_str("->"),
+            Lexeme::Ident(x) => out.push_str(x),
+            Lexeme::Open => out.push('('),
+            Lexeme::Close => out.push(')'),
+        }
+    }
+    out
+}
+
+pub fn lex(input: &str) -> Result<Vec<Lexeme>, ParseError> {
+    let s: Vec<char> = input.chars().collect();
     let mut out = Vec::new();
+    // Positions of the parentheses that are still open.
+    let mut open: Vec<usize> = Vec::new();
+    let mut pos = 0;
     loop {
-        pos = skip_space(s, pos);
+        pos = skip_space(&s, pos);
         let Some(&c) = s.get(pos) else { break };
         let lexeme = match c {
             '\\' => {
@@ -178,15 +411,14 @@ fn lex_many(s: &[char], mut pos: usize) -> Result<(Vec<Lexeme>, usize), ParseErr
                 Lexeme::Arrow
             }
             '(' => {
-                let (inner, q) = lex_many(s, pos + 1)?;
-                if s.get(q) != Some(&')') {
-                    return Err(match s.get(q) {
-                        None => ParseError::UnclosedParen(pos + 1),
-                        Some(&c) => ParseError::UnexpectedChar(c, q + 1),
-                    });
-                }
-                pos = q + 1;
-                Lexeme::Bracketed(inner)
+                open.push(pos);
+                pos += 1;
+                Lexeme::Open
+            }
+            ')' if !open.is_empty() => {
+                open.pop();
+                pos += 1;
+                Lexeme::Close
             }
             c if is_ident_char(c) => {
                 let start = pos;
@@ -202,7 +434,13 @@ fn lex_many(s: &[char], mut pos: usize) -> Result<(Vec<Lexeme>, usize), ParseErr
         };
         out.push(lexeme);
     }
-    Ok((out, pos))
+    match (s.get(pos), open.last()) {
+        (None, None) => Ok(out),
+        // The innermost unclosed parenthesis.
+        (None, Some(&p)) => Err(ParseError::UnclosedParen(p + 1)),
+        (Some(')'), _) => Err(ParseError::UnmatchedParen(pos + 1)),
+        (Some(&c), _) => Err(ParseError::UnexpectedChar(c, pos + 1)),
+    }
 }
 
 fn skip_space(s: &[char], mut pos: usize) -> usize {
@@ -292,68 +530,106 @@ enum ParseState {
 }
 
 pub fn parse_expr(input: &str) -> Result<Expr, ParseError> {
-    let lexemes = lex(input)?;
-    let mut state = ParseState::Fresh;
-    expr(&lexemes, &mut state)
+    parse(&lex(input)?)
 }
 
-/// Parse lexemes in state `st`. On success, the caller replaces `st`.
-///
-/// This is a loop rather than recursion over the lexemes, and it moves the
-/// expression built so far instead of copying it, so a long expression parses
-/// in linear time and constant stack. Lambda parameters are collected and
-/// wrapped around the body at the end, since a lambda extends to the right.
-fn expr(mut ls: &[Lexeme], st: &mut ParseState) -> Result<Expr, ParseError> {
-    let mut params: Vec<String> = Vec::new();
-    loop {
-        let Some((head, rest)) = ls.split_first() else {
-            let body = match std::mem::replace(st, ParseState::Fresh) {
-                ParseState::Stale(e) => e,
-                ParseState::InsideLambda => return Err(ParseError::LambdaWithoutArrow),
-                ParseState::Fresh => return Err(ParseError::EmptyExpression),
-            };
-            return Ok(params.into_iter().rev().fold(body, |e, n| Expr::abs(n, e)));
+/// The tokens from `i` to the end of the parenthesised group that contains
+/// it (or to the end of the input), for error messages.
+fn rest_of_group(ls: &[Lexeme], i: usize) -> Vec<Lexeme> {
+    let mut depth = 0usize;
+    for (j, l) in ls.iter().enumerate().skip(i) {
+        match l {
+            Lexeme::Open => depth += 1,
+            Lexeme::Close if depth == 0 => return ls[i..j].to_vec(),
+            Lexeme::Close => depth -= 1,
+            _ => {}
+        }
+    }
+    ls[i..].to_vec()
+}
+
+/// One parenthesised group being parsed: its state, and the lambda
+/// parameters seen so far, which wrap its body at the end since a lambda
+/// extends to the right.
+struct Group {
+    st: ParseState,
+    params: Vec<String>,
+}
+
+impl Group {
+    fn new() -> Group {
+        Group {
+            st: ParseState::Fresh,
+            params: Vec::new(),
+        }
+    }
+
+    fn finish(self) -> Result<Expr, ParseError> {
+        let body = match self.st {
+            ParseState::Stale(e) => e,
+            ParseState::InsideLambda => return Err(ParseError::LambdaWithoutArrow),
+            ParseState::Fresh => return Err(ParseError::EmptyExpression),
         };
-        match head {
-            Lexeme::Lambda => match st {
+        Ok(self
+            .params
+            .into_iter()
+            .rev()
+            .fold(body, |e, n| Expr::abs(n, e)))
+    }
+}
+
+/// Parse balanced tokens. Groups are kept on a stack rather than parsed
+/// recursively, so deep nesting can't overflow the call stack.
+fn parse(ls: &[Lexeme]) -> Result<Expr, ParseError> {
+    // The enclosing groups, each waiting for the group inside it.
+    let mut outer: Vec<Group> = Vec::new();
+    let mut g = Group::new();
+    for (i, l) in ls.iter().enumerate() {
+        match l {
+            Lexeme::Lambda => match &g.st {
                 ParseState::InsideLambda => {
-                    return Err(ParseError::LambdaInsideLambda(ls.to_vec()));
+                    return Err(ParseError::LambdaInsideLambda(rest_of_group(ls, i)));
                 }
                 ParseState::Stale(e) => {
-                    return Err(ParseError::LambdaInStaleScope(ls.to_vec(), e.clone()));
+                    return Err(ParseError::LambdaInStaleScope(
+                        rest_of_group(ls, i),
+                        e.clone(),
+                    ));
                 }
-                ParseState::Fresh => *st = ParseState::InsideLambda,
+                ParseState::Fresh => g.st = ParseState::InsideLambda,
             },
-            Lexeme::Arrow => match st {
-                ParseState::InsideLambda => *st = ParseState::Fresh,
-                _ => return Err(ParseError::ArrowInScope(ls.to_vec())),
+            Lexeme::Arrow => match g.st {
+                ParseState::InsideLambda => g.st = ParseState::Fresh,
+                _ => return Err(ParseError::ArrowInScope(rest_of_group(ls, i))),
             },
-            Lexeme::Ident(x) => match std::mem::replace(st, ParseState::Fresh) {
+            Lexeme::Ident(x) => match std::mem::replace(&mut g.st, ParseState::Fresh) {
                 ParseState::InsideLambda => {
-                    params.push(x.clone());
-                    *st = ParseState::InsideLambda;
+                    g.params.push(x.clone());
+                    g.st = ParseState::InsideLambda;
                 }
-                ParseState::Fresh => *st = ParseState::Stale(Expr::var(x.clone())),
+                ParseState::Fresh => g.st = ParseState::Stale(Expr::var(x.clone())),
                 ParseState::Stale(f) => {
-                    *st = ParseState::Stale(Expr::app(f, Expr::var(x.clone())));
+                    g.st = ParseState::Stale(Expr::app(f, Expr::var(x.clone())));
                 }
             },
-            Lexeme::Bracketed(bs) => match std::mem::replace(st, ParseState::Fresh) {
-                ParseState::InsideLambda => {
-                    return Err(ParseError::BracketsInsideLambda(ls.to_vec()));
+            Lexeme::Open => {
+                if matches!(g.st, ParseState::InsideLambda) {
+                    return Err(ParseError::BracketsInsideLambda(rest_of_group(ls, i)));
                 }
-                ParseState::Fresh => {
-                    let e = expr(bs, st)?;
-                    *st = ParseState::Stale(e);
-                }
-                ParseState::Stale(f) => {
-                    let e = expr(bs, st)?;
-                    *st = ParseState::Stale(Expr::app(f, e));
-                }
-            },
+                // The enclosing group keeps its state: `Fresh`, or `Stale(f)`
+                // to be applied to this group.
+                outer.push(std::mem::replace(&mut g, Group::new()));
+            }
+            Lexeme::Close => {
+                let e = std::mem::replace(&mut g, outer.pop().expect("balanced")).finish()?;
+                g.st = match std::mem::replace(&mut g.st, ParseState::Fresh) {
+                    ParseState::Stale(f) => ParseState::Stale(Expr::app(f, e)),
+                    _ => ParseState::Stale(e),
+                };
+            }
         }
-        ls = rest;
     }
+    g.finish()
 }
 
 #[cfg(test)]

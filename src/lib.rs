@@ -10,6 +10,11 @@ pub mod typecheck;
 
 use std::fmt;
 
+/// A work stack for the traversals that replace recursion. Most expressions
+/// are small, so the first few entries live on the call stack, which avoids
+/// a heap allocation per call.
+pub(crate) type Stack<T> = smallvec::SmallVec<[T; 16]>;
+
 /// Any error that ends a run.
 #[derive(Debug)]
 pub enum Error {
