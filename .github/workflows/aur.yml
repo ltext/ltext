@@ -47,9 +47,10 @@ jobs:
       - name: Install tools
         run: pacman -Syu --noconfirm --needed git openssh rust namcap
 
+      # Packaging comes from the commit this workflow runs on: the tag itself
+      # when called from release.yml, the chosen branch for a manual run. (A
+      # tag may predate packaging/aur.)
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.tag }}
 
       - name: Fill in version and checksums
         shell: bash
