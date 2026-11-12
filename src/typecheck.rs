@@ -5,6 +5,9 @@
 //! `quantify` is never called in the Haskell code, so every scheme has an
 //! empty quantifier set. The context therefore maps names straight to types.
 
+use smallvec::smallvec;
+
+use crate::Stack;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -12,16 +15,75 @@ use crate::Error;
 use crate::expr::Expr;
 use crate::files::Loader;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Type {
     Text,
     TVar(String),
     Arrow(Box<Type>, Box<Type>),
 }
 
+// Types can be as deep as the expressions they describe, so, like `Expr`,
+// `Type` is cloned, dropped and traversed with explicit stacks.
+
 impl Type {
     fn arrow(a: Type, b: Type) -> Type {
         Type::Arrow(Box::new(a), Box::new(b))
+    }
+
+    /// The two sides of an arrow, moved out.
+    fn into_arrow(mut self) -> (Type, Type) {
+        let Type::Arrow(a, b) = &mut self else {
+            panic!("not an arrow")
+        };
+        let take = |b: &mut Box<Type>| std::mem::replace(&mut **b, Type::Text);
+        (take(a), take(b))
+    }
+}
+
+impl Drop for Type {
+    fn drop(&mut self) {
+        fn push_children(t: &mut Type, stack: &mut Stack<Type>) {
+            if let Type::Arrow(a, b) = t {
+                for c in [a, b] {
+                    if let Type::Arrow(..) = **c {
+                        stack.push(std::mem::replace(&mut **c, Type::Text));
+                    }
+                }
+            }
+        }
+        let mut stack: Stack<_> = Stack::new();
+        push_children(self, &mut stack);
+        while let Some(mut t) = stack.pop() {
+            push_children(&mut t, &mut stack);
+        }
+    }
+}
+
+impl Clone for Type {
+    fn clone(&self) -> Type {
+        enum Step<'a> {
+            Visit(&'a Type),
+            Arrow,
+        }
+        let mut steps: Stack<_> = smallvec![Step::Visit(self)];
+        let mut done: Stack<Type> = Stack::new();
+        while let Some(step) = steps.pop() {
+            match step {
+                Step::Visit(Type::Arrow(a, b)) => {
+                    steps.push(Step::Arrow);
+                    steps.push(Step::Visit(b));
+                    steps.push(Step::Visit(a));
+                }
+                Step::Visit(Type::Text) => done.push(Type::Text),
+                Step::Visit(Type::TVar(n)) => done.push(Type::TVar(n.clone())),
+                Step::Arrow => {
+                    let b = done.pop().expect("result");
+                    let a = done.pop().expect("argument");
+                    done.push(Type::arrow(a, b));
+                }
+            }
+        }
+        done.pop().expect("type")
     }
 }
 
@@ -32,20 +94,34 @@ struct Renamer(HashMap<String, String>);
 
 impl Renamer {
     fn pp(&mut self, t: &Type) -> String {
-        match t {
-            Type::Text => "Text".into(),
-            Type::TVar(n) => {
-                let next = format!("a{}", self.0.len());
-                self.0.entry(n.clone()).or_insert(next).clone()
-            }
-            Type::Arrow(a, b) => {
-                let l = match **a {
-                    Type::Arrow(..) => format!("({})", self.pp(a)),
-                    _ => self.pp(a),
-                };
-                format!("{l} -> {}", self.pp(b))
+        enum Item<'a> {
+            Type(&'a Type),
+            Str(&'static str),
+        }
+        let mut out = String::new();
+        let mut todo: Stack<_> = smallvec![Item::Type(t)];
+        while let Some(item) = todo.pop() {
+            match item {
+                Item::Str(s) => out.push_str(s),
+                Item::Type(Type::Text) => out.push_str("Text"),
+                Item::Type(Type::TVar(n)) => {
+                    let next = format!("a{}", self.0.len());
+                    out.push_str(self.0.entry(n.clone()).or_insert(next));
+                }
+                Item::Type(Type::Arrow(a, b)) => {
+                    todo.push(Item::Type(b));
+                    todo.push(Item::Str(" -> "));
+                    if let Type::Arrow(..) = **a {
+                        todo.push(Item::Str(")"));
+                        todo.push(Item::Type(a));
+                        todo.push(Item::Str("("));
+                    } else {
+                        todo.push(Item::Type(a));
+                    }
+                }
             }
         }
+        out
     }
 }
 
@@ -111,67 +187,130 @@ impl Checker<'_> {
         t
     }
 
+    /// Follow bound type variables, without changing anything.
+    fn follow<'t>(&'t self, mut t: &'t Type) -> &'t Type {
+        while let Type::TVar(n) = t {
+            match self.subst.get(n) {
+                Some(bound) => t = bound,
+                None => break,
+            }
+        }
+        t
+    }
+
     /// Apply the current substitution completely.
     fn resolve(&self, t: &Type) -> Type {
-        match t {
-            Type::Text => Type::Text,
-            Type::TVar(n) => match self.subst.get(n) {
-                Some(t2) => self.resolve(t2),
-                None => t.clone(),
-            },
-            Type::Arrow(a, b) => Type::arrow(self.resolve(a), self.resolve(b)),
+        enum Step<'a> {
+            Visit(&'a Type),
+            Arrow,
         }
+        let mut steps: Stack<_> = smallvec![Step::Visit(t)];
+        let mut done: Stack<Type> = Stack::new();
+        while let Some(step) = steps.pop() {
+            match step {
+                Step::Visit(t) => match self.follow(t) {
+                    Type::Arrow(a, b) => {
+                        steps.push(Step::Arrow);
+                        steps.push(Step::Visit(b));
+                        steps.push(Step::Visit(a));
+                    }
+                    t => done.push(t.clone()),
+                },
+                Step::Arrow => {
+                    let b = done.pop().expect("result");
+                    let a = done.pop().expect("argument");
+                    done.push(Type::arrow(a, b));
+                }
+            }
+        }
+        done.pop().expect("type")
     }
 
     /// Follow bound type variables until reaching an unbound variable or a
     /// type constructor. Chains of variables bound to variables are shortened
     /// on the way, so repeated lookups stay cheap.
-    fn shallow(&mut self, t: &Type) -> Type {
-        let Type::TVar(n) = t else {
-            return t.clone();
+    fn shallow(&mut self, t: Type) -> Type {
+        let Type::TVar(start) = &t else {
+            return t;
         };
-        let Some(bound) = self.subst.get(n).cloned() else {
-            return t.clone();
+        // The variables passed through that are bound to other variables.
+        let mut chain: Vec<String> = Vec::new();
+        let mut n = start.clone();
+        let r = loop {
+            match self.subst.get(&n) {
+                None if chain.is_empty() => return t,
+                None => break Type::TVar(n),
+                Some(Type::TVar(m)) => {
+                    let m = m.clone();
+                    chain.push(std::mem::replace(&mut n, m));
+                }
+                Some(bound) => break bound.clone(),
+            }
         };
-        let r = self.shallow(&bound);
-        if matches!(bound, Type::TVar(_)) {
-            self.subst.insert(n.clone(), r.clone());
+        for v in chain {
+            self.subst.insert(v, r.clone());
         }
         r
     }
 
     /// Does type variable `n` occur in `t`, under the current substitution?
     fn occurs(&self, n: &str, t: &Type) -> bool {
-        match t {
-            Type::Text => false,
-            Type::TVar(m) => m == n || self.subst.get(m).is_some_and(|t2| self.occurs(n, t2)),
-            Type::Arrow(a, b) => self.occurs(n, a) || self.occurs(n, b),
+        let mut todo: Stack<_> = smallvec![t];
+        while let Some(t) = todo.pop() {
+            match t {
+                Type::Text => {}
+                Type::TVar(m) if m == n => return true,
+                Type::TVar(m) => todo.extend(self.subst.get(m)),
+                Type::Arrow(a, b) => {
+                    todo.push(b);
+                    todo.push(a);
+                }
+            }
         }
+        false
     }
 
     /// Unify two types, resolving only as far as each step needs. Errors hold
     /// partly resolved types; `finish` resolves them for the message.
     fn unify(&mut self, a: &Type, b: &Type) -> Result<(), TypeError> {
-        let (a, b) = (self.shallow(a), self.shallow(b));
-        match (&a, &b) {
-            (Type::Text, Type::Text) => Ok(()),
-            (Type::TVar(n), Type::TVar(m)) if n == m => Ok(()),
-            (Type::TVar(n), t) | (t, Type::TVar(n)) => {
-                if self.occurs(n, t) {
-                    return Err(TypeError::OccursCheckFailure(
-                        Type::TVar(n.clone()),
-                        t.clone(),
-                    ));
-                }
-                self.subst.insert(n.clone(), t.clone());
-                Ok(())
-            }
-            (Type::Arrow(a1, a2), Type::Arrow(b1, b2)) => {
-                self.unify(a1, b1)?;
-                self.unify(a2, b2)
-            }
-            _ => Err(TypeError::CantUnify(a, b)),
+        enum Case {
+            Equal,
+            /// Bind the variable on the left (true) or right (false).
+            Bind(bool),
+            Arrows,
+            Clash,
         }
+        // Pairs still to unify, first on top.
+        let mut todo: Stack<_> = smallvec![(a.clone(), b.clone())];
+        while let Some((a, b)) = todo.pop() {
+            let (a, b) = (self.shallow(a), self.shallow(b));
+            let case = match (&a, &b) {
+                (Type::Text, Type::Text) => Case::Equal,
+                (Type::TVar(n), Type::TVar(m)) if n == m => Case::Equal,
+                (Type::TVar(_), _) => Case::Bind(true),
+                (_, Type::TVar(_)) => Case::Bind(false),
+                (Type::Arrow(..), Type::Arrow(..)) => Case::Arrows,
+                _ => Case::Clash,
+            };
+            match case {
+                Case::Equal => {}
+                Case::Bind(left) => {
+                    let (v, t) = if left { (a, b) } else { (b, a) };
+                    let Type::TVar(n) = &v else { unreachable!() };
+                    if self.occurs(n, &t) {
+                        return Err(TypeError::OccursCheckFailure(v, t));
+                    }
+                    self.subst.insert(n.clone(), t);
+                }
+                Case::Arrows => {
+                    let ((a1, a2), (b1, b2)) = (a.into_arrow(), b.into_arrow());
+                    todo.push((a2, b2));
+                    todo.push((a1, b1));
+                }
+                Case::Clash => return Err(TypeError::CantUnify(a, b)),
+            }
+        }
+        Ok(())
     }
 
     fn infer(
@@ -180,46 +319,91 @@ impl Checker<'_> {
         ctx: &mut HashMap<String, Type>,
         e: &Expr,
     ) -> Result<Type, Error> {
-        match e {
-            Expr::Lit { .. } => Ok(Type::Text),
-            Expr::Concat { left, right, .. } => {
-                let tl = self.infer(level, ctx, left)?;
-                self.unify(&tl, &Type::Text).map_err(|e| self.finish(e))?;
-                let tr = self.infer(level, ctx, right)?;
-                self.unify(&tr, &Type::Text).map_err(|e| self.finish(e))?;
-                Ok(Type::Text)
-            }
-            Expr::Var(x) => match ctx.get(x) {
-                Some(t) => Ok(t.clone()),
-                None if level == Level::TopLevel && self.files.exists(x) => {
-                    if self.files.is_raw(x) {
-                        Ok(Type::Text)
-                    } else {
-                        // Documents are closed: check them in an empty context.
-                        let d = self.files.load(x)?;
-                        self.infer(Level::DocLevel, &mut HashMap::new(), &d)
+        /// What to do with a type once it's inferred.
+        enum Then<'e> {
+            /// It's the left side of a `Concat`; this is the right side.
+            ConcatLeft(&'e Expr),
+            ConcatRight,
+            /// It's the body of a lambda: its parameter, the parameter's type,
+            /// and whatever the parameter shadowed in the context.
+            Abs(&'e str, Type, Option<Type>),
+            /// It's a function; this is its argument.
+            AppFun(&'e Expr),
+            /// It's an argument; this is the function's type.
+            AppArg(Type),
+        }
+        let mut stack: Stack<Then<'_>> = Stack::new();
+        let mut cur = e;
+        loop {
+            // Go down to a leaf.
+            let mut ty = loop {
+                match cur {
+                    Expr::Lit { .. } => break Type::Text,
+                    Expr::Concat { left, right, .. } => {
+                        stack.push(Then::ConcatLeft(right));
+                        cur = left;
+                    }
+                    Expr::Var(x) => {
+                        break match ctx.get(x) {
+                            Some(t) => t.clone(),
+                            None if level == Level::TopLevel && self.files.exists(x) => {
+                                if self.files.is_raw(x) {
+                                    Type::Text
+                                } else {
+                                    // Documents are closed: check them in an
+                                    // empty context. They can't refer to
+                                    // files, so this nests only once.
+                                    let d = self.files.load(x)?;
+                                    self.infer(Level::DocLevel, &mut HashMap::new(), &d)?
+                                }
+                            }
+                            None => return Err(TypeError::UnboundVariable(x.clone()).into()),
+                        };
+                    }
+                    Expr::Abs(n, body) => {
+                        let t = self.fresh_tvar();
+                        let shadowed = ctx.insert(n.clone(), t.clone());
+                        stack.push(Then::Abs(n, t, shadowed));
+                        cur = body;
+                    }
+                    Expr::App(f, a) => {
+                        stack.push(Then::AppFun(a));
+                        cur = f;
                     }
                 }
-                None => Err(TypeError::UnboundVariable(x.clone()).into()),
-            },
-            Expr::Abs(n, body) => {
-                let t = self.fresh_tvar();
-                let shadowed = ctx.insert(n.clone(), t.clone());
-                let tb = self.infer(level, ctx, body);
-                match shadowed {
-                    Some(old) => ctx.insert(n.clone(), old),
-                    None => ctx.remove(n),
-                };
-                Ok(Type::arrow(t, tb?))
-            }
-            Expr::App(f, a) => {
-                let tf = self.infer(level, ctx, f)?;
-                let ta = self.infer(level, ctx, a)?;
-                let r = self.fresh_tvar();
-                self.unify(&tf, &Type::arrow(ta, r.clone()))
-                    .map_err(|e| self.finish(e))?;
-                Ok(r)
-            }
+            };
+            // Go back up, until another subexpression needs inferring.
+            cur = loop {
+                match stack.pop() {
+                    None => return Ok(ty),
+                    Some(Then::ConcatLeft(right)) => {
+                        self.unify(&ty, &Type::Text).map_err(|e| self.finish(e))?;
+                        stack.push(Then::ConcatRight);
+                        break right;
+                    }
+                    Some(Then::ConcatRight) => {
+                        self.unify(&ty, &Type::Text).map_err(|e| self.finish(e))?;
+                        ty = Type::Text;
+                    }
+                    Some(Then::Abs(n, t, shadowed)) => {
+                        match shadowed {
+                            Some(old) => ctx.insert(n.to_owned(), old),
+                            None => ctx.remove(n),
+                        };
+                        ty = Type::arrow(t, ty);
+                    }
+                    Some(Then::AppFun(a)) => {
+                        stack.push(Then::AppArg(ty));
+                        break a;
+                    }
+                    Some(Then::AppArg(tf)) => {
+                        let r = self.fresh_tvar();
+                        self.unify(&tf, &Type::arrow(ty, r.clone()))
+                            .map_err(|e| self.finish(e))?;
+                        ty = r;
+                    }
+                }
+            };
         }
     }
 
