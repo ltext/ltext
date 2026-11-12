@@ -71,7 +71,7 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
-          PUBLISH: ${{ inputs.publish != false }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         run: |
           ver=${TAG#v}
           base=repos/microsoft/winget-pkgs/contents/manifests/l/ltext/ltext
