@@ -5,8 +5,8 @@ use clap::Parser;
 
 use ltext::Error;
 use ltext::document::{print_document, to_document};
-use ltext::eval::{evaluate, free_vars, substitute};
-use ltext::expr::{Expr, parse_expr, pp_expr};
+use ltext::eval::evaluate;
+use ltext::expr::{parse_expr, pp_expr};
 use ltext::files::Loader;
 use ltext::typecheck::{pp_type, type_of_top_level};
 
@@ -89,17 +89,8 @@ fn run(opts: &Opts) -> Result<String, Error> {
         return Ok(format!("{}\n", pp_type(&ty)));
     }
 
-    let resolved = resolve_top_level(expr, &mut files)?;
+    let resolved = files.resolve(&expr)?;
     let doc = to_document(&evaluate(&resolved))?;
     let delims = opts.left.as_deref().zip(opts.right.as_deref());
     Ok(print_document(delims, &doc)?)
-}
-
-/// Replace each free variable with the contents of the file it names.
-fn resolve_top_level(e: Expr, files: &mut Loader) -> Result<Expr, Error> {
-    let mut out = e.clone();
-    for f in free_vars(&e) {
-        out = substitute(&f, &files.load(&f)?, &out);
-    }
-    Ok(out)
 }
