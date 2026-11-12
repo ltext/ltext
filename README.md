@@ -12,23 +12,13 @@ prenex polymorphic type system. See the [github.io page](http://ltext.github.io/
 
 ## Building
 
-λtext is tested with GHC 9.6 through 9.14.
-
-### Using Cabal
+λtext is written in Rust (1.85 or newer).
 
 ```bash
 $> git clone https://github.com/ltext/ltext
 $> cd ltext
-$> cabal install
+$> cargo install --path .
 ```
-
-### Using Stack
-
-```bash
-$> stack install
-```
-
-The Stack build uses the snapshot pinned in `stack.yaml` (Stackage LTS 24, GHC 9.10).
 
 ### Using Nix
 
@@ -37,44 +27,71 @@ With flakes enabled:
 ```bash
 $> nix build          # binary at ./result/bin/ltext
 $> nix run . -- --help
-$> nix develop        # shell with GHC, cabal, hpack and HLS
+$> nix develop        # shell with cargo, clippy, rustfmt and rust-analyzer
 ```
 
 Without flakes, `nix-build` builds the executable from your `<nixpkgs>` channel.
 
-### Hacking
+### Testing
 
-`package.yaml` is the source of truth; `ltext.cabal` is generated from it by
-[hpack](https://github.com/sol/hpack) (Stack does this automatically). After
-changing `package.yaml` while using Cabal, run `hpack` to regenerate it.
+```bash
+$> cargo test                                   # unit and property tests
+$> cargo build --release
+$> golden/run.sh target/release/ltext           # CLI golden tests
+```
+
+See `golden/README.md` for the golden test corpus.
 
 ## Usage
 
 ```bash
-$> ltext --help
-
+$> ltext -h
 λtext - parameterized file evaluator
 
-Usage: ltext EXPRESSION [--version] [-t|--type] [-v|--verbose] [-r|--raw FILE]
-             [--left LEFT] [--right RIGHT]
-  Evaluate EXPRESSION and send the substitution to stdout. See
-  http://ltext.github.io/ for more details.
+Usage: ltext [OPTIONS] <EXPRESSION>
 
-Available options:
-  -h,--help                Show this help text
-  --version                Print the version number
-  -t,--type                Perform type inference on an expression
-  -v,--verbose             Be verbose, sending info through stderr
-  -r,--raw FILE            Treat these files as plaintext without an arity
-                           header
-  --left LEFT              The left delimiter to use for rendering partially
-                           applied files
-  --right RIGHT            The right delimiter to use for rendering partially
-                           applied files
+Arguments:
+  <EXPRESSION>  Expression to evaluate, e.g. `greet name` or `\x -> wrap x`
+
+Options:
+  -t, --type           Print the type of EXPRESSION instead of evaluating it
+  -v, --verbose        Report what ltext is doing on stderr
+  -r, --raw <FILE>     Treat FILE as plain text, even if its first line looks like a header
+      --left <LEFT>    Left delimiter for rendering a partially applied result
+      --right <RIGHT>  Right delimiter for rendering a partially applied result
+  -h, --help           Print help (see more with '--help')
+  -V, --version        Print version
 
 $> ltext --type "\a -> a"
-
 a0 -> a0
+```
+
+For example, given a file `greet`:
+
+```
+{{ name }}
+Hello,
+{{ name }}
+!
+```
+
+and a file `name` containing `World`, `ltext "greet name"` prints:
+
+```
+Hello,
+World
+!
+```
+
+Applying fewer arguments than a template takes leaves a template.
+`--left` and `--right` give the delimiters to render it with:
+
+```bash
+$> ltext --left '<<' --right '>>' "\n -> greet n"
+<< n >>
+Hello,
+<< n >>
+!
 ```
 
 ## How It Works

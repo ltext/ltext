@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 6ce9aec032a129fa067c5d6c54508d2742dbdf5cbc04d330568bda0b1dfdf3d8 # shrinks to e = Abs("y", Abs("x", App(Abs("x", Var("y")), App(Var("x"), Var("y")))))
+cc 161312b6b98708703e34828eaa4285c6223aeee192b1b9b84d41607bba65cf47 # shrinks to doc = Document { arity: ["a"], body: [Expression(App(App(App(Var("¡"), Var("A->")), Var("¡")), Var("!")))] }, l = "Aa", r = "0A"

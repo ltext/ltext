@@ -1,0 +1,5 @@
+[Print Error] Can't print textual data while inside an expression:
+
+    g (\x -> [text from "foo"])
+
+...cannot be rendered to a file.

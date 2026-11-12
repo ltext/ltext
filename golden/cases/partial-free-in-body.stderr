@@ -1,0 +1,5 @@
+[Print Error] Can't print textual data while inside an expression:
+
+    f [text from "bar"] [text from "foo"]
+
+...cannot be rendered to a file.

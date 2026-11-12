@@ -1,0 +1,6 @@
+error: the following required arguments were not provided:
+  <EXPRESSION>
+
+Usage: ltext <EXPRESSION>
+
+For more information, try '--help'.

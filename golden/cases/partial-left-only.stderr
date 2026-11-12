@@ -1,0 +1,6 @@
+error: the following required arguments were not provided:
+  --right <RIGHT>
+
+Usage: ltext --left <LEFT> --right <RIGHT> <EXPRESSION>
+
+For more information, try '--help'.

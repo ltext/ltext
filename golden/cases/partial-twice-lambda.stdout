@@ -1,0 +1,4 @@
+{{ g x }}
+begin
+{{ g (g x) }}
+end

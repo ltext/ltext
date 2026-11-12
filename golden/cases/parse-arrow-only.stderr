@@ -1,0 +1,7 @@
+error: unexpected argument '->' found
+
+  tip: to pass '->' as a value, use '-- ->'
+
+Usage: ltext [OPTIONS] <EXPRESSION>
+
+For more information, try '--help'.

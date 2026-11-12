@@ -29,20 +29,5 @@ apps:
 
 parts:
   ltext:
-    plugin: nil
+    plugin: rust
     source: .
-    build-environment:
-      - PATH: "/root/.local/bin:$PATH"
-    override-build: |
-      which stack || curl -sSL https://get.haskellstack.org/ | sh 
-      stack --version
-      stack build
-      stack install
-    organize:
-      "/root/.local/bin/ltext" : bin/ltext
-    build-packages:
-      - curl
-      - libcurl4
-    stage-packages:
-      - libc-bin
-      - libgmp10

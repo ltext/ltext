@@ -1,0 +1,7 @@
+error: unexpected argument '--frobnicate' found
+
+  tip: to pass '--frobnicate' as a value, use '-- --frobnicate'
+
+Usage: ltext [OPTIONS] <EXPRESSION>
+
+For more information, try '--help'.

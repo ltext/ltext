@@ -1,0 +1,4 @@
+[ltext] expression: foo bar
+[ltext] reading "foo" as document
+[ltext] reading "bar" as document
+[ltext] type: Text
