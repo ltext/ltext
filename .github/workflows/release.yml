@@ -141,8 +141,11 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "$GITHUB_REF_NAME" dist/*
-          --repo "$GITHUB_REPOSITORY"
-          --verify-tag --notes-from-tag
-          --title "ltext ${GITHUB_REF_NAME#v}"
+        run: |
+          # Notes: the annotated tag's message minus its first (title) line.
+          # (--notes-from-tag needs a local checkout, and this job has none.)
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.sha)
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq .message | tail -n +3 > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "ltext ${GITHUB_REF_NAME#v}" --notes-file notes.md
