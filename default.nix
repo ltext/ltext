@@ -1,5 +1,11 @@
 # Builds the ltext executable. Without flakes: `nix-build`.
-{ pkgs ? import <nixpkgs> { }, lib ? pkgs.lib, rustPlatform ? pkgs.rustPlatform }:
+{ pkgs ? import <nixpkgs> { }
+, lib ? pkgs.lib
+, rustPlatform ? pkgs.rustPlatform
+  # Git commit being built, if known. Without it, `ltext --version` reports the
+  # Cargo.toml version (right for builds of a release tag).
+, rev ? null
+}:
 
 let
   cargoToml = lib.importTOML ./Cargo.toml;
@@ -13,6 +19,7 @@ rustPlatform.buildRustPackage {
     fileset = lib.fileset.unions [
       ./Cargo.toml
       ./Cargo.lock
+      ./build.rs
       ./src
       ./tests
       ./golden
@@ -20,6 +27,8 @@ rustPlatform.buildRustPackage {
   };
 
   cargoLock.lockFile = ./Cargo.lock;
+
+  env = lib.optionalAttrs (rev != null) { LTEXT_GIT_REV = rev; };
 
   # Unit and property tests run by default; also check the golden corpus.
   postCheck = ''
