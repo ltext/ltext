@@ -13,7 +13,7 @@ use std::time::Duration;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 
 use ltext::document::{parse_document, print_document, to_document};
-use ltext::eval::evaluate;
+use ltext::eval::{eval, evaluate};
 use ltext::expr::{Expr, parse_expr};
 use ltext::files::Loader;
 use ltext::typecheck::type_of_top_level;
@@ -103,7 +103,7 @@ fn render(expression: &str, raw: &[String]) -> String {
     let mut files = Loader::new(raw, false);
     type_of_top_level(&expr, &mut files).unwrap();
     let resolved = files.resolve(&expr).unwrap();
-    let doc = to_document(&evaluate(&resolved)).unwrap();
+    let doc = to_document(&eval(resolved)).unwrap();
     print_document(None, &doc).unwrap()
 }
 

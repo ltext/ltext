@@ -5,7 +5,7 @@ use clap::Parser;
 
 use ltext::Error;
 use ltext::document::{print_document, to_document};
-use ltext::eval::evaluate;
+use ltext::eval::eval;
 use ltext::expr::{parse_expr, pp_expr};
 use ltext::files::Loader;
 use ltext::typecheck::{pp_type, type_of_top_level};
@@ -90,7 +90,7 @@ fn run(opts: &Opts) -> Result<String, Error> {
     }
 
     let resolved = files.resolve(&expr)?;
-    let doc = to_document(&evaluate(&resolved))?;
+    let doc = to_document(&eval(resolved))?;
     let delims = opts.left.as_deref().zip(opts.right.as_deref());
     Ok(print_document(delims, &doc)?)
 }

@@ -297,56 +297,62 @@ pub fn parse_expr(input: &str) -> Result<Expr, ParseError> {
     expr(&lexemes, &mut state)
 }
 
-fn expr(ls: &[Lexeme], st: &mut ParseState) -> Result<Expr, ParseError> {
-    let Some((head, rest)) = ls.split_first() else {
-        return match st {
-            ParseState::Stale(e) => Ok(e.clone()),
-            ParseState::InsideLambda => Err(ParseError::LambdaWithoutArrow),
-            ParseState::Fresh => Err(ParseError::EmptyExpression),
+/// Parse lexemes in state `st`. On success, the caller replaces `st`.
+///
+/// This is a loop rather than recursion over the lexemes, and it moves the
+/// expression built so far instead of copying it, so a long expression parses
+/// in linear time and constant stack. Lambda parameters are collected and
+/// wrapped around the body at the end, since a lambda extends to the right.
+fn expr(mut ls: &[Lexeme], st: &mut ParseState) -> Result<Expr, ParseError> {
+    let mut params: Vec<String> = Vec::new();
+    loop {
+        let Some((head, rest)) = ls.split_first() else {
+            let body = match std::mem::replace(st, ParseState::Fresh) {
+                ParseState::Stale(e) => e,
+                ParseState::InsideLambda => return Err(ParseError::LambdaWithoutArrow),
+                ParseState::Fresh => return Err(ParseError::EmptyExpression),
+            };
+            return Ok(params.into_iter().rev().fold(body, |e, n| Expr::abs(n, e)));
         };
-    };
-    match head {
-        Lexeme::Lambda => match st {
-            ParseState::InsideLambda => Err(ParseError::LambdaInsideLambda(ls.to_vec())),
-            ParseState::Stale(e) => Err(ParseError::LambdaInStaleScope(ls.to_vec(), e.clone())),
-            ParseState::Fresh => {
-                *st = ParseState::InsideLambda;
-                expr(rest, st)
-            }
-        },
-        Lexeme::Arrow => match st {
-            ParseState::InsideLambda => {
-                *st = ParseState::Fresh;
-                expr(rest, st)
-            }
-            _ => Err(ParseError::ArrowInScope(ls.to_vec())),
-        },
-        Lexeme::Ident(x) => match st {
-            ParseState::InsideLambda => Ok(Expr::abs(x.clone(), expr(rest, st)?)),
-            ParseState::Fresh => {
-                *st = ParseState::Stale(Expr::var(x.clone()));
-                expr(rest, st)
-            }
-            ParseState::Stale(f) => {
-                *st = ParseState::Stale(Expr::app(f.clone(), Expr::var(x.clone())));
-                expr(rest, st)
-            }
-        },
-        Lexeme::Bracketed(bs) => match st {
-            ParseState::InsideLambda => Err(ParseError::BracketsInsideLambda(ls.to_vec())),
-            ParseState::Fresh => {
-                let e = expr(bs, st)?;
-                *st = ParseState::Stale(e);
-                expr(rest, st)
-            }
-            ParseState::Stale(f) => {
-                let f = f.clone();
-                *st = ParseState::Fresh;
-                let e = expr(bs, st)?;
-                *st = ParseState::Stale(Expr::app(f, e));
-                expr(rest, st)
-            }
-        },
+        match head {
+            Lexeme::Lambda => match st {
+                ParseState::InsideLambda => {
+                    return Err(ParseError::LambdaInsideLambda(ls.to_vec()));
+                }
+                ParseState::Stale(e) => {
+                    return Err(ParseError::LambdaInStaleScope(ls.to_vec(), e.clone()));
+                }
+                ParseState::Fresh => *st = ParseState::InsideLambda,
+            },
+            Lexeme::Arrow => match st {
+                ParseState::InsideLambda => *st = ParseState::Fresh,
+                _ => return Err(ParseError::ArrowInScope(ls.to_vec())),
+            },
+            Lexeme::Ident(x) => match std::mem::replace(st, ParseState::Fresh) {
+                ParseState::InsideLambda => {
+                    params.push(x.clone());
+                    *st = ParseState::InsideLambda;
+                }
+                ParseState::Fresh => *st = ParseState::Stale(Expr::var(x.clone())),
+                ParseState::Stale(f) => {
+                    *st = ParseState::Stale(Expr::app(f, Expr::var(x.clone())));
+                }
+            },
+            Lexeme::Bracketed(bs) => match std::mem::replace(st, ParseState::Fresh) {
+                ParseState::InsideLambda => {
+                    return Err(ParseError::BracketsInsideLambda(ls.to_vec()));
+                }
+                ParseState::Fresh => {
+                    let e = expr(bs, st)?;
+                    *st = ParseState::Stale(e);
+                }
+                ParseState::Stale(f) => {
+                    let e = expr(bs, st)?;
+                    *st = ParseState::Stale(Expr::app(f, e));
+                }
+            },
+        }
+        ls = rest;
     }
 }
 

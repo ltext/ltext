@@ -5,7 +5,7 @@
 //! `quantify` is never called in the Haskell code, so every scheme has an
 //! empty quantifier set. The context therefore maps names straight to types.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 
 use crate::Error;
@@ -22,25 +22,6 @@ pub enum Type {
 impl Type {
     fn arrow(a: Type, b: Type) -> Type {
         Type::Arrow(Box::new(a), Box::new(b))
-    }
-
-    fn free_tvars(&self, out: &mut HashSet<String>) {
-        match self {
-            Type::Text => {}
-            Type::TVar(n) => {
-                out.insert(n.clone());
-            }
-            Type::Arrow(a, b) => {
-                a.free_tvars(out);
-                b.free_tvars(out);
-            }
-        }
-    }
-
-    fn contains_tvar(&self, n: &str) -> bool {
-        let mut s = HashSet::new();
-        self.free_tvars(&mut s);
-        s.contains(n)
     }
 }
 
@@ -142,13 +123,41 @@ impl Checker<'_> {
         }
     }
 
+    /// Follow bound type variables until reaching an unbound variable or a
+    /// type constructor. Chains of variables bound to variables are shortened
+    /// on the way, so repeated lookups stay cheap.
+    fn shallow(&mut self, t: &Type) -> Type {
+        let Type::TVar(n) = t else {
+            return t.clone();
+        };
+        let Some(bound) = self.subst.get(n).cloned() else {
+            return t.clone();
+        };
+        let r = self.shallow(&bound);
+        if matches!(bound, Type::TVar(_)) {
+            self.subst.insert(n.clone(), r.clone());
+        }
+        r
+    }
+
+    /// Does type variable `n` occur in `t`, under the current substitution?
+    fn occurs(&self, n: &str, t: &Type) -> bool {
+        match t {
+            Type::Text => false,
+            Type::TVar(m) => m == n || self.subst.get(m).is_some_and(|t2| self.occurs(n, t2)),
+            Type::Arrow(a, b) => self.occurs(n, a) || self.occurs(n, b),
+        }
+    }
+
+    /// Unify two types, resolving only as far as each step needs. Errors hold
+    /// partly resolved types; `finish` resolves them for the message.
     fn unify(&mut self, a: &Type, b: &Type) -> Result<(), TypeError> {
-        let (a, b) = (self.resolve(a), self.resolve(b));
+        let (a, b) = (self.shallow(a), self.shallow(b));
         match (&a, &b) {
             (Type::Text, Type::Text) => Ok(()),
             (Type::TVar(n), Type::TVar(m)) if n == m => Ok(()),
             (Type::TVar(n), t) | (t, Type::TVar(n)) => {
-                if t.contains_tvar(n) {
+                if self.occurs(n, t) {
                     return Err(TypeError::OccursCheckFailure(
                         Type::TVar(n.clone()),
                         t.clone(),
