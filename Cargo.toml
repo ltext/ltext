@@ -6,8 +6,26 @@ rust-version = "1.85"
 description = "λtext: general-purpose text-file templating utility"
 license = "BSD-3-Clause"
 repository = "https://github.com/ltext/ltext"
+homepage = "https://ltext.github.io"
+readme = "README.md"
 authors = ["Athan Clark"]
 categories = ["command-line-utilities", "template-engine"]
+keywords = ["template", "templating", "text", "lambda-calculus", "cli"]
+# The golden corpus is included so that packagers building from the crate can
+# run golden/run.sh too.
+include = [
+  "/Cargo.toml",
+  "/Cargo.lock",
+  "/build.rs",
+  "/src/",
+  "/tests/",
+  "/golden/README.md",
+  "/golden/run.sh",
+  "/golden/cases/",
+  "/golden/fixtures/",
+  "/README.md",
+  "/LICENSE",
+]
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
@@ -20,6 +38,18 @@ proptest = "1.12.0"
 strip = true
 lto = true
 codegen-units = 1
+
+# `cargo binstall ltext` downloads the release archives instead of compiling.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
+bin-dir = "{ name }-{ version }-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+
+[package.metadata.binstall.overrides.aarch64-pc-windows-msvc]
+pkg-fmt = "zip"
 
 # `cargo deb` (cargo-deb) and `cargo generate-rpm` (cargo-generate-rpm) build
 # the Linux packages attached to GitHub releases; see .github/workflows/release.yml.

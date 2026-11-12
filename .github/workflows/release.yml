@@ -150,6 +150,51 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "ltext ${GITHUB_REF_NAME#v}" --notes-file notes.md
 
+  crates-io:
+    name: publish to crates.io
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # For crates.io trusted publishing: GitHub vouches for this workflow and
+      # crates.io returns a token that lasts only for this publish. Configured
+      # under the crate's settings on crates.io (ltext/ltext, release.yml).
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Skip if this version is already on crates.io
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          status=$(curl -s -o /dev/null -w '%{http_code}' -A "ltext-release (github.com/ltext/ltext)" \
+            "https://crates.io/api/v1/crates/ltext/$version")
+          if [[ "$status" == 200 ]]; then
+            echo "ltext $version is already on crates.io"
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          fi
+      - name: Get a short-lived crates.io token
+        if: env.SKIP != 'true'
+        run: |
+          set -euo pipefail
+          jwt=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=crates.io" | jq -r .value)
+          token=$(jq -n --arg jwt "$jwt" '{jwt: $jwt}' |
+            curl -fsS -X POST https://crates.io/api/v1/trusted_publishing/tokens \
+              -A "ltext-release (github.com/ltext/ltext)" \
+              -H 'Content-Type: application/json' --data @- | jq -r .token)
+          [[ -n "$token" && "$token" != null ]] || { echo "::error::no token from crates.io"; exit 1; }
+          echo "::add-mask::$token"
+          echo "CARGO_REGISTRY_TOKEN=$token" >> "$GITHUB_ENV"
+      - name: Publish
+        if: env.SKIP != 'true'
+        run: cargo publish --locked
+      - name: Revoke the token
+        if: always() && env.CARGO_REGISTRY_TOKEN != ''
+        run: >
+          curl -fsS -X DELETE https://crates.io/api/v1/trusted_publishing/tokens
+          -A "ltext-release (github.com/ltext/ltext)"
+          -H "Authorization: Bearer $CARGO_REGISTRY_TOKEN"
+
   aur:
     name: AUR
     needs: release
