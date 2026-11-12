@@ -1,0 +1,148 @@
+name: Release
+
+# Pushing a tag vX.Y.Z builds ltext for every platform below and publishes a
+# GitHub release with the archives, .deb/.rpm packages and SHA256SUMS. The
+# annotated tag's message becomes the release notes.
+#
+# Pull requests that touch packaging run the same builds, without
+# publishing, so a broken release is caught before tagging.
+on:
+  push:
+    tags: ['v[0-9]*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - build.rs
+      - Cargo.toml
+      - Cargo.lock
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux builds are static (musl), so they run on any distribution.
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04, linux-packages: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, linux-packages: true }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          # Cross-compiled on Apple silicon, so its tests can't run there.
+          - { target: x86_64-apple-darwin, os: macos-latest, cross: true }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: aarch64-pc-windows-msvc, os: windows-11-arm }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # build.rs derives the version from `git describe`, which needs tags.
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Check the tag matches Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cargo_version=$(cargo pkgid | sed 's/.*[#@]//')
+          if [[ "${GITHUB_REF_NAME#v}" != "$cargo_version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME doesn't match Cargo.toml version $cargo_version"
+            exit 1
+          fi
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Locate binary and version
+        run: |
+          exe=target/${{ matrix.target }}/release/ltext
+          [[ "${{ runner.os }}" == Windows ]] && exe+=.exe
+          echo "EXE=$exe" >> "$GITHUB_ENV"
+          if [[ "${{ matrix.cross }}" == true ]]; then
+            version=$(cargo pkgid | sed 's/.*[#@]//')
+            [[ "$GITHUB_REF" == refs/tags/* ]] || version=$(git describe --tags --match 'v[0-9]*' --always --dirty | sed 's/^v//')
+          else
+            version=$("$exe" --version | cut -d' ' -f2)
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/* && "$version" != "${GITHUB_REF_NAME#v}" ]]; then
+            echo "::error::binary reports version $version, expected ${GITHUB_REF_NAME#v}"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "ltext $version"
+
+      - name: Unit and property tests
+        if: ${{ !matrix.cross }}
+        run: cargo test --release --locked --target ${{ matrix.target }}
+
+      - name: Golden CLI tests
+        if: ${{ !matrix.cross }}
+        run: golden/run.sh --strict-stderr "$EXE"
+
+      - name: Archive
+        run: |
+          name=ltext-$VERSION-${{ matrix.target }}
+          mkdir -p "dist" "$name"
+          cp "$EXE" README.md LICENSE "$name/"
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            pwsh -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath 'dist/$name.zip'"
+            # A bare .exe too, for dropping straight onto the PATH.
+            cp "$EXE" "dist/$name.exe"
+          else
+            tar czf "dist/$name.tar.gz" "$name"
+          fi
+
+      - name: Debian and RPM packages
+        if: matrix.linux-packages
+        run: |
+          cargo install --locked cargo-deb@3.8.0 cargo-generate-rpm@0.21.1
+          cargo deb --no-build --target ${{ matrix.target }} --output dist/
+          cargo generate-rpm --target ${{ matrix.target }} --output dist/
+
+      - run: ls -l dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ltext-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY"
+          --verify-tag --notes-from-tag
+          --title "ltext ${GITHUB_REF_NAME#v}"

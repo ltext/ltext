@@ -10,6 +10,30 @@
 λtext turns text files into higher-order functions, featuring a Hindley-Milner /
 prenex polymorphic type system. See the [github.io page](http://ltext.github.io/).
 
+## Installing
+
+Each [release](https://github.com/ltext/ltext/releases/latest) has
+ready-made builds. Every asset name includes the version, shown as `VERSION`
+below.
+
+| Platform | Download |
+| --- | --- |
+| Debian, Ubuntu | `ltext_VERSION-1_amd64.deb` / `_arm64.deb`: `sudo apt install ./ltext_*.deb` |
+| Fedora, RHEL, openSUSE | `ltext-VERSION-1.x86_64.rpm` / `.aarch64.rpm`: `sudo dnf install ./ltext-*.rpm` |
+| Any Linux (static binary) | `ltext-VERSION-x86_64-unknown-linux-musl.tar.gz` / `aarch64-…` |
+| macOS (Apple silicon, Intel) | `ltext-VERSION-aarch64-apple-darwin.tar.gz` / `x86_64-…` |
+| Windows (x64, ARM64) | `ltext-VERSION-x86_64-pc-windows-msvc.exe` or `.zip` / `aarch64-…` |
+
+Unpack an archive and put `ltext` somewhere on your `PATH`. `SHA256SUMS`
+lists the checksum of every asset. macOS may quarantine a downloaded binary;
+`xattr -d com.apple.quarantine ltext` clears that.
+
+With Nix: `nix run github:ltext/ltext -- --help`, or `nix profile add github:ltext/ltext`.
+
+`ltext --version` prints the release version, e.g. `ltext 0.2.0`. A build of
+an untagged commit prints the `git describe` form instead, e.g.
+`ltext 0.2.0-3-g1a2b3c4`: 3 commits after 0.2.0, at commit `1a2b3c4`.
+
 ## Building
 
 λtext is written in Rust (1.85 or newer).
