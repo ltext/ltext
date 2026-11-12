@@ -1,0 +1,3 @@
+# The golden corpus is compared byte for byte, and some fixtures test CRLF
+# and invalid UTF-8 on purpose: never convert line endings on checkout.
+golden/** -text
